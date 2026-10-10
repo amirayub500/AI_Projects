@@ -1,0 +1,57 @@
+# Research AI Agent on one server: Ollama + the web app.
+#
+#   docker compose up -d --build     start (first run downloads the model)
+#   docker compose logs -f app       watch the app
+#   docker compose down              stop
+#
+# Settings come from the .env file next to this one (copy .env.example).
+
+services:
+
+  # The local LLM server. Models are kept in a volume so they survive restarts.
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # Runs once: downloads the model into the volume, then exits.
+  # (Quick on later starts because the model is already there.)
+  model-pull:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${MODEL:-qwen3:1.7b}"]
+    restart: "no"
+
+  # The FastAPI app + web UI. Starts after the model is ready.
+  app:
+    build: .
+    depends_on:
+      model-pull:
+        condition: service_completed_successfully
+    environment:
+      # Inside Docker, "ollama" is the other container's name
+      OLLAMA_HOST: http://ollama:11434
+      MODEL: ${MODEL:-qwen3:1.7b}
+      MAX_STEPS: ${MAX_STEPS:-5}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-300}
+      RESEARCH_TIMEOUT: ${RESEARCH_TIMEOUT:-900}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      RATE_LIMIT_PER_HOUR: ${RATE_LIMIT_PER_HOUR:-10}
+      MAX_TOPIC_CHARS: ${MAX_TOPIC_CHARS:-500}
+    ports:
+      # Visitors use http://SERVER-IP (port 80) -> app's port 8000
+      - "${PUBLIC_PORT:-80}:8000"
+    restart: unless-stopped
+
+volumes:
+  ollama-models:

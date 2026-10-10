@@ -16,7 +16,11 @@ The tool-calling loop (the core agent pattern from Days 15-19):
     send messages + tool list to the model
       -> model replies with tool_calls?   YES: run each tool, append result, loop
                                           NO : it wants to stop -> check verified notes
-    stop when: verified notes exist and the model stops, OR max_steps is reached
+    stop when: verified notes exist and the model stops,
+               OR max_steps is reached, OR the run's time limit is reached
+
+Each call to research_agent() creates its own ResearchSession (tools.py),
+so findings from different requests never mix. It returns that session.
 
 Builds on:
     Day 15 ProdReady   - manager/worker split, step limits
@@ -26,53 +30,27 @@ Builds on:
                          here it is written by hand with ollama.chat()
 """
 
-from ollama import chat
+import os
+import time
 
-from tools import (
-    search_web,
-    read_webpage,
-    add_research_note,
-    get_research_notes,
-    verify_finding,
-    get_verified_research_notes,
-    clear_research_notes
-)
+# chat() calls Ollama with MODEL and a timeout (both set in llm.py)
+from llm import chat
 
+from tools import ResearchSession, make_tools
 
-# Local model served by Ollama at http://localhost:11434 (CPU -> slow).
-# Keep MODEL in tools.py the same.
-MODEL = "qwen3:1.7b"
 
 # Hard cap on agent loop iterations.
 # Each step = one model call + any tools it requests.
 # The full chain (search -> read -> add note -> verify) needs ~4 tool calls,
 # so 5 steps leaves one spare. The "steps left" reminder starts at step 4.
 # If runs end with "No verified research findings", raise this number.
-# main.py imports this, so this is the ONLY place to change it.
+# main.py imports this. On the server it can be set in the .env file.
+MAX_STEPS = int(os.getenv("MAX_STEPS", "5"))
 
-MAX_STEPS = 5
-
-
-# Name -> Python function. When the model asks for a tool by name,
-# we look it up here and call it. Unknown names are reported back as errors.
-AVAILABLE_TOOLS = {
-    "search_web": search_web,
-    "read_webpage": read_webpage,
-    "add_research_note": add_research_note,
-    "get_research_notes": get_research_notes,
-    "verify_finding": verify_finding
-}
-
-
-# The list given to ollama.chat(tools=...). Ollama builds the tool
-# schema from each function's signature and docstring.
-TOOLS = [
-    search_web,
-    read_webpage,
-    add_research_note,
-    get_research_notes,
-    verify_finding
-]
+# Total seconds one research run may take before it stops looking and
+# writes the report from what it has. Protects a shared server from a run
+# that never ends. 900 s = 15 minutes.
+RESEARCH_TIMEOUT = float(os.getenv("RESEARCH_TIMEOUT", "900"))
 
 
 def generate_report(
@@ -98,7 +76,6 @@ def generate_report(
     )
 
     response = chat(
-        model=MODEL,
         messages=[
             {
                 "role": "system",
@@ -151,10 +128,13 @@ def research_agent(
 
     The agent must collect and verify research
     findings before it is allowed to finish.
-    It stops after max_steps loop iterations.
+    It stops after max_steps loop iterations or RESEARCH_TIMEOUT seconds.
 
     progress_callback: optional function. main.py passes one that pushes
     each event dict onto a queue, which is streamed to the browser.
+
+    Returns the ResearchSession: session.verified_notes() for the report,
+    session.final_message for the model's last words.
     """
 
     def emit(message):
@@ -163,8 +143,19 @@ def research_agent(
         if progress_callback:
             progress_callback(message)
 
-    # Fresh start: forget findings from any previous request
-    clear_research_notes()
+    # This request's own notes + the tools bound to them
+    session = ResearchSession()
+    tools = make_tools(session)
+
+    # Name -> Python function. When the model asks for a tool by name,
+    # we look it up here and call it. Unknown names are reported back as errors.
+    available_tools = {
+        tool.__name__: tool
+        for tool in tools
+    }
+
+    # Wall-clock deadline for the whole run
+    deadline = time.monotonic() + RESEARCH_TIMEOUT
 
     # ---------------- 1. PLAN ----------------
     plan = create_research_plan(
@@ -227,6 +218,22 @@ def research_agent(
 
     for step in range(max_steps):
 
+        # Out of time: stop researching, keep what was verified so far
+        if time.monotonic() > deadline:
+
+            print("\nTime limit reached.")
+
+            emit({
+                "type": "step",
+                "step": step + 1,
+                "message": (
+                    f"Time limit reached ({int(RESEARCH_TIMEOUT)} s)."
+                )
+            })
+
+            session.final_message = "Time limit reached."
+            return session
+
         print(
             f"\n--- Agent Step {step + 1} of {max_steps} ---"
         )
@@ -260,9 +267,8 @@ def research_agent(
         # One model call. The model either answers in text
         # or returns tool_calls (which tools + which arguments).
         response = chat(
-            model=MODEL,
             messages=messages,
-            tools=TOOLS
+            tools=tools
         )
 
         # Keep the model's reply in the history so it remembers its own calls
@@ -279,7 +285,7 @@ def research_agent(
         if not response.message.tool_calls:
 
             verified_notes = (
-                get_verified_research_notes()
+                session.verified_notes()
             )
 
             if verified_notes:
@@ -293,7 +299,8 @@ def research_agent(
                     len(verified_notes)
                 )
 
-                return response.message.content
+                session.final_message = response.message.content
+                return session
 
             else:
 
@@ -372,7 +379,7 @@ def research_agent(
                 })
 
             tool_function = (
-                AVAILABLE_TOOLS.get(
+                available_tools.get(
                     tool_name
                 )
             )
@@ -439,11 +446,13 @@ def research_agent(
         )
     })
 
-    return (
+    session.final_message = (
         "The agent reached its maximum "
         "number of steps before completing "
         "the research."
     )
+
+    return session
 
 
 def create_research_plan(
@@ -456,7 +465,6 @@ def create_research_plan(
     """
 
     response = chat(
-        model=MODEL,
         messages=[
             {
                 "role": "system",
@@ -490,13 +498,13 @@ def run_agent(request):
     research -> check verified notes -> generate report.
     """
 
-    research_agent(
+    session = research_agent(
         request,
         max_steps=MAX_STEPS
     )
 
     verified_notes = (
-        get_verified_research_notes()
+        session.verified_notes()
     )
 
     if not verified_notes:

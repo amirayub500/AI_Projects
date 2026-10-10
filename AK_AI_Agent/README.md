@@ -39,10 +39,13 @@ The agent loop is written by hand with `ollama.chat(tools=...)` rather than a fr
 | File | Role |
 | --- | --- |
 | `main.py` | FastAPI server: `/` (web UI), `/research` (streaming, used by the UI), `/chat` (JSON), `/health` |
-| `agent.py` | Plan, research loop, report writing; `MODEL` and `MAX_STEPS` settings |
-| `tools.py` | Tools the model can call: `search_web`, `read_webpage`, `add_research_note`, `get_research_notes`, `verify_finding` |
+| `agent.py` | Plan, research loop, report writing; `MAX_STEPS` and run time limit |
+| `tools.py` | Tools the model can call (`search_web`, `read_webpage`, `add_research_note`, `get_research_notes`, `verify_finding`) and the per-request `ResearchSession` |
+| `llm.py` | Ollama connection: `MODEL` and call timeout, used by both files above |
 | `schemas.py` | Pydantic request/response models for `/chat` |
 | `frontend/` | `index.html`, `app.js` (reads the event stream), `style.css` |
+| `Dockerfile`, `docker-compose.yml`, `.env.example` | Run Ollama + the app on a server |
+| `DEPLOY.md` | Step-by-step: deploy on a free Oracle Cloud server |
 
 ## Tech stack
 
@@ -91,13 +94,32 @@ Interactive docs at http://localhost:8000/docs.
 curl.exe -X POST http://localhost:8000/chat -H "Content-Type: application/json" -d '{\"message\": \"Impact of generative AI on software development\"}'
 ```
 
+## Deploy to a server
+
+See **[DEPLOY.md](DEPLOY.md)** for a free Oracle Cloud server. On any Linux server with Docker and 4+ GB RAM:
+
+```bash
+cp .env.example .env      # then set APP_PASSWORD
+docker compose up -d --build
+```
+
+The app is then at `http://SERVER-IP`. One research runs at a time; visitors are rate-limited and asked for the password.
+
 ## Settings
 
-| Setting | File | Default | Notes |
-| --- | --- | --- | --- |
-| `MODEL` | `agent.py` and `tools.py` | `qwen3:1.7b` | Keep both equal. Larger models are more accurate but slower on CPU. |
-| `MAX_STEPS` | `agent.py` | `5` | Raise if runs end with "No verified findings". |
-| `MAX_PAGE_CHARS` | `tools.py` | `4000` | Characters of each web page given to the model. Lower = faster. |
+Set as environment variables (in `.env` when using Docker). Defaults suit local use.
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `MODEL` | `qwen3:1.7b` | Larger models are more accurate but slower on CPU. |
+| `MAX_STEPS` | `5` | Agent loop steps. Raise if runs end with "No verified findings". |
+| `LLM_TIMEOUT` | `300` | Seconds one model call may take. |
+| `RESEARCH_TIMEOUT` | `900` | Seconds one whole research run may take. |
+| `APP_PASSWORD` | empty | If set, the browser asks for this password (any user name). |
+| `RATE_LIMIT_PER_HOUR` | `10` | Research runs per visitor IP per hour. |
+| `MAX_TOPIC_CHARS` | `500` | Longest topic accepted. |
+
+`MAX_PAGE_CHARS` (`4000`, in `tools.py`) sets how much of each web page the model sees. Lower = faster.
 
 ## Performance notes
 
@@ -107,7 +129,7 @@ curl.exe -X POST http://localhost:8000/chat -H "Content-Type: application/json" 
 ## Known limitations
 
 - `verify_finding` checks the evidence the model supplied; it does not yet confirm the evidence appears on the fetched page.
-- Research notes are stored in one module-level list, so two simultaneous requests would share it.
-- No timeout on LLM calls; if Ollama hangs, the request waits.
+- One research at a time: a CPU model can't serve parallel requests, so others get "busy, try again".
+- The optional password uses HTTP Basic auth; without HTTPS it is not encrypted.
 - DuckDuckGo's HTML page may rate-limit or change its layout.
 - Web page text goes straight into the prompt (prompt injection is possible).
