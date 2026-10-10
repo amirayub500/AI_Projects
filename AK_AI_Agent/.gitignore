@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Secrets and local settings
+.env
+
+# Personal study notes (remove this line to publish them)
+Documents/
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db

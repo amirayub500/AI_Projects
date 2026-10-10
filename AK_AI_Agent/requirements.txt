@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+ollama
+requests
+beautifulsoup4
+pydantic
