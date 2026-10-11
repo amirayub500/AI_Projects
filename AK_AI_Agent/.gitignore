@@ -16,3 +16,16 @@ Documents/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# CLIENT DATA - never upload (the GitHub repo is public)
+# data/ holds the imported files (data/inbox) and the database (data/company.db)
+data/
+*.db
+*.sqlite
+*.pdf
+*.docx
+*.doc
+*.xlsx
+*.xlsm
+*.xls
+*.csv

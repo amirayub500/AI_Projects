@@ -42,6 +42,8 @@ The agent loop is written by hand with `ollama.chat(tools=...)` rather than a fr
 | `agent.py` | Plan, research loop, report writing; `MAX_STEPS` and run time limit |
 | `tools.py` | Tools the model can call (`search_web`, `read_webpage`, `add_research_note`, `get_research_notes`, `verify_finding`) and the per-request `ResearchSession` |
 | `llm.py` | Ollama connection: `MODEL` and call timeout, used by both files above |
+| `company_db.py` | The client's database (SQLite): document text search, spreadsheet tables, read-only queries |
+| `ingest.py` | Converts client files (PDF incl. scans, Word, text, Excel, CSV) to text and loads them into the database |
 | `schemas.py` | Pydantic request/response models for `/chat` |
 | `frontend/` | `index.html`, `app.js` (reads the event stream), `style.css` |
 | `Dockerfile`, `docker-compose.yml`, `.env.example` | Run Ollama + the app on a server |
@@ -94,6 +96,36 @@ Interactive docs at http://localhost:8000/docs.
 curl.exe -X POST http://localhost:8000/chat -H "Content-Type: application/json" -d '{\"message\": \"Impact of generative AI on software development\"}'
 ```
 
+## Company data: ask with "/"
+
+Besides web research, the agent can answer from an organization's **own** files.
+Start a request with `/` to use only that data:
+
+| You type | The agent uses |
+| --- | --- |
+| `Benefits of solar energy for homes` | The web (search + read pages) |
+| `/ Total pledges by donor in 2026` | The organization's documents and tables only |
+
+**1. Put the files in `data/inbox`** (sub-folders are fine): PDF (scanned pages are OCR'd), Word `.docx`, `.txt`/`.md`, Excel `.xlsx`/`.xlsm`, `.csv`.
+
+**2. Import them:**
+
+```powershell
+python ingest.py data/inbox          # import new files
+python ingest.py --status            # what is loaded, and files that need attention
+```
+
+On the Docker server: `docker compose exec app python ingest.py data/inbox`.
+
+**What the import does:**
+
+- Every file gets an **ID = hash of its contents**, so re-running only imports new files.
+- Documents are split into passages and indexed for **keyword search (SQLite FTS5, BM25 ranking)**. Citations show file and page (PDF) or part (Word/text).
+- Each spreadsheet sheet becomes a **SQL table** (`t_<file>_<sheet>`) with clean column names, e.g. *Donor ID, Donor Name, Pledge Amount, Date of Pledge, Record Updated, Updated By* → `donor_id, donor_name, pledge_amount, date_of_pledge, record_updated, updated_by`. Amounts like `$1,200.00` become numbers and dates become `YYYY-MM-DD`, so totals and date ranges work. `_source_file` and `_row` record where each row came from.
+- Scanned PDFs need [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) on Windows (included in the Docker image); without it they are marked `needs_ocr`.
+
+**Safety:** the agent's database connection is read-only, only single `SELECT` queries run, results are capped at 50 rows with a 10-second limit. `data/`, `*.db` and document/spreadsheet files are in `.gitignore`: **client data never goes to GitHub.** `GET /company-data` shows what is loaded.
+
 ## Deploy to a server
 
 See **[DEPLOY.md](DEPLOY.md)** for a free Oracle Cloud server. On any Linux server with Docker and 4+ GB RAM:
@@ -127,6 +159,8 @@ Set as environment variables (in `.env` when using Docker). Defaults suit local 
 - Every message stays in the conversation and is re-read on each step, so page text is trimmed.
 
 ## Known limitations
+
+- Company search is keyword-based (FTS5); synonyms are not matched. Vector search (e.g. PostgreSQL + pgvector) is the planned upgrade, and only `company_db.py` would change.
 
 - `verify_finding` checks the evidence the model supplied; it does not yet confirm the evidence appears on the fetched page.
 - One research at a time: a CPU model can't serve parallel requests, so others get "busy, try again".

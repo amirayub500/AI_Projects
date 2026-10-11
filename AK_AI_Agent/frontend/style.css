@@ -662,3 +662,13 @@ footer {
 
     font-weight: 700;
 }
+
+
+.mode-hint {
+
+    margin: -4px 0 12px;
+
+    color: var(--muted);
+
+    font-size: 13px;
+}

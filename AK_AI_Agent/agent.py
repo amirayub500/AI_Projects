@@ -37,6 +37,7 @@ import time
 from llm import chat
 
 from tools import ResearchSession, make_tools
+import company_db
 
 
 # Hard cap on agent loop iterations.
@@ -121,7 +122,8 @@ def generate_report(
 
 def research_agent(
     user_request,
-    max_steps=MAX_STEPS, progress_callback=None
+    max_steps=MAX_STEPS, progress_callback=None,
+    mode="web"
 ):
     """
     Run the autonomous research agent.
@@ -132,6 +134,11 @@ def research_agent(
 
     progress_callback: optional function. main.py passes one that pushes
     each event dict onto a queue, which is streamed to the browser.
+
+    mode: "web"     -> research the internet (search_web, read_webpage)
+          "company" -> research the client's own data only
+                       (search_documents, query_database); chosen when the
+                       request starts with "/" (see main.py)
 
     Returns the ResearchSession: session.verified_notes() for the report,
     session.final_message for the model's last words.
@@ -145,7 +152,7 @@ def research_agent(
 
     # This request's own notes + the tools bound to them
     session = ResearchSession()
-    tools = make_tools(session)
+    tools = make_tools(session, mode)
 
     # Name -> Python function. When the model asks for a tool by name,
     # we look it up here and call it. Unknown names are reported back as errors.
@@ -159,7 +166,8 @@ def research_agent(
 
     # ---------------- 1. PLAN ----------------
     plan = create_research_plan(
-        user_request
+        user_request,
+        mode
     )
 
     print("\n" + "=" * 60)
@@ -176,10 +184,10 @@ def research_agent(
     # ---------------- 2. RESEARCH ----------------
     # The conversation the model sees. It grows every step:
     # model replies and tool results are appended to it.
-    messages = [
-        {
-            "role": "system",
-            "content": (
+    if mode == "company":
+        system_prompt = company_system_prompt(max_steps)
+    else:
+        system_prompt = (
                 "/no_think "
                 "You are a research agent. "
 
@@ -205,7 +213,12 @@ def research_agent(
                 "verified findings. "
 
                 "Do not invent sources or evidence."
-            )
+        )
+
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
         },
         {
             "role": "user",
@@ -455,14 +468,57 @@ def research_agent(
     return session
 
 
+def company_system_prompt(max_steps):
+    """
+    Instructions for company mode ("/" requests): use ONLY the client's data.
+    The table list is read from the database each time, so newly imported
+    spreadsheets are known to the model without code changes.
+    """
+
+    counts = company_db.document_summary()
+
+    return (
+        "/no_think "
+        "You are a research agent for an organization. "
+        "Answer ONLY from the organization's own data, using these tools: "
+        "search_documents (letters, minutes, reports, policies) and "
+        "query_database (spreadsheet tables, read-only SQLite SELECT). "
+        "Do not use outside knowledge and do not invent facts.\n\n"
+
+        f"Loaded: {counts['documents']} document(s) and {counts['tables']} table(s).\n"
+        "Tables (name, rows, source, columns):\n"
+        f"{company_db.describe_tables()}\n\n"
+
+        "Tips: use query_database for amounts, counts, totals and dates "
+        "(amounts are numbers; dates are 'YYYY-MM-DD' text, so use BETWEEN or "
+        "comparisons). Use search_documents for names, topics and context. "
+        "For a person or organization, check both.\n\n"
+
+        f"You have only {max_steps} steps in total. "
+        "After you find something relevant, call add_research_note with "
+        "source = the file and page from search_documents, or the table name "
+        "and _source_file/_row from query_database; "
+        "evidence = the exact passage or the result rows. "
+        "Then call verify_finding with the same source, finding and evidence. "
+        "Do not finish with zero verified findings."
+    )
+
+
 def create_research_plan(
-    user_request
+    user_request,
+    mode="web"
 ):
     """
     Create a concise research plan.
     (Step 1: PLAN - one LLM call, no tools. The plan text is
      pasted into the research agent's first message.)
     """
+
+    where = (
+        "The research will use only the organization's own documents and "
+        "data tables, not the internet. "
+        if mode == "company" else ""
+    )
 
     response = chat(
         messages=[
@@ -479,7 +535,8 @@ def create_research_plan(
                     "research objectives that need to be "
                     "investigated. "
 
-                    "Return at most 5 numbered research steps."
+                    + where +
+                    "Return at most 3 numbered research steps."
                 )
             },
             {
@@ -492,7 +549,7 @@ def create_research_plan(
     return response.message.content
 
 
-def run_agent(request):
+def run_agent(request, mode="web"):
     """
     Whole pipeline in one blocking call (used by POST /chat).
     research -> check verified notes -> generate report.
@@ -500,7 +557,8 @@ def run_agent(request):
 
     session = research_agent(
         request,
-        max_steps=MAX_STEPS
+        max_steps=MAX_STEPS,
+        mode=mode
     )
 
     verified_notes = (

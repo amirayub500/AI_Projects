@@ -3,6 +3,7 @@
 #   docker compose up -d --build     start (first run downloads the model)
 #   docker compose logs -f app       watch the app
 #   docker compose down              stop
+#   docker compose exec app python ingest.py data/inbox    import client files
 #
 # Settings come from the .env file next to this one (copy .env.example).
 
@@ -48,6 +49,11 @@ services:
       APP_PASSWORD: ${APP_PASSWORD:-}
       RATE_LIMIT_PER_HOUR: ${RATE_LIMIT_PER_HOUR:-10}
       MAX_TOPIC_CHARS: ${MAX_TOPIC_CHARS:-500}
+    volumes:
+      # Client data stays on the server, outside the image and outside Git:
+      #   ./data/inbox       files to import
+      #   ./data/company.db  the database created by ingest.py
+      - ./data:/app/data
     ports:
       # Visitors use http://SERVER-IP (port 80) -> app's port 8000
       - "${PUBLIC_PORT:-80}:8000"

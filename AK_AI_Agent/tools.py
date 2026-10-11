@@ -11,8 +11,17 @@ How the LLM sees these tools:
        instructions the model reads when deciding how to call a tool.
 
 Tools exposed to the model (make_tools() builds the list):
+
+  Web mode (a normal request):
     search_web         -> find candidate sources        (from Day 18)
     read_webpage       -> pull text from one source     (from Day 18)
+
+  Company mode (a request starting with "/"):
+    search_documents   -> keyword search in the client's imported documents
+    query_database     -> read-only SQL on the client's spreadsheet tables
+                          (both read data/company.db via company_db.py)
+
+  Both modes:
     add_research_note  -> save a finding + its evidence
     get_research_notes -> look at what has been saved
     verify_finding     -> 2nd LLM call: does the evidence support the finding?
@@ -33,6 +42,7 @@ import requests
 from bs4 import BeautifulSoup          # pip install beautifulsoup4  (HTML -> text)
 from urllib.parse import urlparse, parse_qs
 
+import company_db
 from llm import chat
 
 
@@ -241,13 +251,64 @@ class ResearchSession:
         return "not_found"
 
 
-def make_tools(session):
+# =====================================================================
+# Company-data tools (read the client's database; no per-request state)
+# =====================================================================
+
+def search_documents(query, max_results=5):
+    """
+    Search the organization's own documents (letters, minutes, reports, policies).
+
+    Args:
+        query: Words to look for, e.g. a name, topic or program.
+        max_results: Maximum number of passages to return (1-8).
+
+    Returns:
+        Matching passages, each with its source (file name and page) and text.
+    """
+
+    results = company_db.search(query, max_results)
+
+    if not results:
+        return {
+            "status": "no_matches",
+            "hint": "Try other words, a shorter query, or query_database for figures."
+        }
+
+    return results
+
+
+def query_database(sql):
+    """
+    Run ONE read-only SQL SELECT on the organization's data tables (SQLite).
+    The table names and columns are listed in your instructions.
+    Each row has _source_file and _row columns to cite where it came from.
+
+    Args:
+        sql: A single SELECT statement, e.g.
+             SELECT donor_name, SUM(pledge_amount) FROM t_pledges GROUP BY donor_name
+
+    Returns:
+        The column names and up to 50 result rows.
+    """
+
+    try:
+        return company_db.run_select(sql)
+    except Exception as exc:
+        # Return the error so the model can correct its SQL on the next step
+        return {"status": "error", "error": str(exc)}
+
+
+def make_tools(session, mode="web"):
     """
     Build the list of tools the model may call, bound to ONE session.
 
     The note/verify functions are defined inside this function, so each
     one "remembers" its own session (a closure). Their names and docstrings
     are what the model sees, exactly as before.
+
+    mode="web"     -> search_web + read_webpage
+    mode="company" -> search_documents + query_database (the client's data only)
     """
 
     def add_research_note(
@@ -358,10 +419,13 @@ def make_tools(session):
 
         return result
 
-    return [
-        search_web,
-        read_webpage,
+    note_tools = [
         add_research_note,
         get_research_notes,
         verify_finding
     ]
+
+    if mode == "company":
+        return [search_documents, query_database] + note_tools
+
+    return [search_web, read_webpage] + note_tools

@@ -6,3 +6,5 @@ venv/
 .git/
 Documents/
 DEPLOY.md
+data/
+*.db

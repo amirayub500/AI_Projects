@@ -4,3 +4,10 @@ ollama
 requests
 beautifulsoup4
 pydantic
+# Company data: reading documents and spreadsheets (ingest.py)
+pymupdf
+python-docx
+pandas
+openpyxl
+pytesseract
+pillow

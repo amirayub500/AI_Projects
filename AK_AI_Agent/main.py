@@ -17,6 +17,13 @@ Endpoints:
     POST /chat                 -> whole pipeline, one JSON answer at the end
     GET  /research?topic=...   -> STREAMING: live progress events, then the report
                                   (this is what the web UI uses)
+    GET  /company-data         -> what client data is loaded (counts + tables)
+
+Two kinds of request:
+    "Impact of solar energy"        -> web research (internet)
+    "/ Total pledges by donor 2026" -> company research: ONLY the client's own
+                                       documents and tables (data/company.db,
+                                       loaded with ingest.py)
 
 Protection for a shared server (all set by environment variables):
     One research at a time   a second request gets "busy, try again" (CPU model)
@@ -43,6 +50,7 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from agent import run_agent, research_agent, generate_report, MAX_STEPS
+import company_db
 from schemas import ChatRequest, ChatResponse
 
 
@@ -93,13 +101,33 @@ def client_ip(request):
     return request.client.host if request.client else "unknown"
 
 
-def run_research_job(topic, progress_callback):
+def parse_request(text):
+    """
+    "/ question" -> ("company", "question")    the client's own data
+    "question"   -> ("web", "question")        internet research
+    """
+
+    text = text.strip()
+
+    if text.startswith("/"):
+        return "company", text.lstrip("/").strip()
+
+    return "web", text
+
+
+NO_COMPANY_DATA = (
+    "No company data is loaded yet. Import the client's files first "
+    "(python ingest.py data/inbox), then ask again with \"/\" in front."
+)
+
+
+def run_research_job(topic, progress_callback, mode="web"):
     """
     The whole web-UI job, run on ONE worker thread so the lock covers it all:
     research (plan + loop + verify), then the report from verified findings.
     """
 
-    session = research_agent(topic, MAX_STEPS, progress_callback)
+    session = research_agent(topic, MAX_STEPS, progress_callback, mode)
 
     # research_agent only GATHERS findings.
     # Step 4 SYNTHESIZE: build the structured report from the verified ones.
@@ -192,6 +220,21 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get("/company-data")
+async def company_data():
+    """What client data is loaded (password-protected like the rest)."""
+
+    if not company_db.has_data():
+        return {"loaded": False, "documents": 0, "tables": 0}
+
+    counts = company_db.document_summary()
+    return {
+        "loaded": True,
+        **counts,
+        "table_list": company_db.describe_tables().splitlines(),
+    }
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, http_request: Request):
     """
@@ -199,10 +242,13 @@ async def chat(request: ChatRequest, http_request: Request):
     Try it at http://localhost:8000/docs
     """
 
-    message = request.message.strip()
+    mode, message = parse_request(request.message)
 
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    if mode == "company" and not company_db.has_data():
+        raise HTTPException(status_code=400, detail=NO_COMPANY_DATA)
 
     if len(message) > MAX_TOPIC_CHARS:
         raise HTTPException(
@@ -227,7 +273,7 @@ async def chat(request: ChatRequest, http_request: Request):
             # run_agent is slow, blocking code (requests + ollama).
             # run_in_threadpool runs it on a worker thread so the server
             # stays responsive to other requests meanwhile.
-            result = await run_in_threadpool(run_agent, message)
+            result = await run_in_threadpool(run_agent, message, mode)
 
             return ChatResponse(response=result)
 
@@ -254,7 +300,7 @@ async def research(topic: str, request: Request):
     so the existing web UI shows it in the report area.
     """
 
-    topic = topic.strip()
+    mode, topic = parse_request(topic)
     ip = client_ip(request)
 
     queue = asyncio.Queue()
@@ -280,6 +326,10 @@ async def research(topic: str, request: Request):
         # ---------- Checks before starting ----------
         if not topic:
             yield finish("Please enter a research topic.")
+            return
+
+        if mode == "company" and not company_db.has_data():
+            yield finish(NO_COMPANY_DATA)
             return
 
         if len(topic) > MAX_TOPIC_CHARS:
@@ -309,7 +359,7 @@ async def research(topic: str, request: Request):
         try:
             # Start the job in a background thread (it blocks while it works)
             task = asyncio.create_task(
-                asyncio.to_thread(run_research_job, topic, progress_callback)
+                asyncio.to_thread(run_research_job, topic, progress_callback, mode)
             )
         except BaseException:
             research_lock.release()

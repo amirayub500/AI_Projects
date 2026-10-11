@@ -144,3 +144,31 @@ The containers restart automatically if the server reboots. The model stays down
 | "Another research is running" | Only one runs at a time; wait for it to finish |
 | Very slow | Expected on 2 Arm CPUs; keep `MAX_STEPS` at 5 and the model at `qwen3:1.7b` |
 | `ssh: ... UNPROTECTED PRIVATE KEY FILE` | Run the `icacls` command in step 4 |
+
+## Load company data on the server
+
+Client files live only on the server (`data/` is never in Git).
+
+**1. Create the folder** (server, once, before the first `docker compose up` after this update):
+
+```bash
+cd ~/AI_Projects/AK_AI_Agent
+mkdir -p data/inbox
+```
+
+**2. Copy files from your laptop** (PowerShell; replace the IP and folder):
+
+```powershell
+scp -i "$HOME\.ssh\ak-ai-agent-key.pem" -r "C:\ClientFiles\*" ubuntu@SERVER-IP:~/AI_Projects/AK_AI_Agent/data/inbox/
+```
+
+**3. Import** (server):
+
+```bash
+docker compose exec app python ingest.py data/inbox
+docker compose exec app python ingest.py --status
+```
+
+Then ask in the web page with `/` in front, e.g. `/ Who pledged the most in 2026?`
+
+Re-running the import only adds new files. To start over: `rm data/company.db` and import again.
