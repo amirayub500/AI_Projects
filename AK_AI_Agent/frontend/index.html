@@ -12,14 +12,37 @@
 
     <title>Research AI</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         rel="stylesheet"
-        href="/static/style.css"
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,700&display=swap"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css?v={{APP_VERSION}}"
     >
 
 </head>
 
 <body>
+
+    <!-- Demo notice -->
+
+    <div class="demo-banner" role="note">
+
+        <span class="demo-badge">DEMO</span>
+
+        <span>
+            This is a demonstration site by AK Data Solutions for testing only.
+            It uses sample data, answers may be incomplete or inaccurate, and
+            requests may be logged. Please don't enter confidential or personal information.
+            <a class="demo-link" href="/static/policy.html">Read the demo policy</a>
+        </span>
+
+    </div>
+
 
     <div class="app-shell">
 
@@ -29,14 +52,17 @@
 
             <div class="brand">
 
-                <div class="brand-icon">
-                    ✦
-                </div>
+                <img
+                    class="brand-logo"
+                    src="/static/logo.png"
+                    alt="AK Data Solutions: Data. Intelligence. Growth."
+                >
 
                 <div>
 
-                    <h1>
-                        AK Data Solutions 
+                    <!-- Name is in the logo; kept here for screen readers and search engines -->
+                    <h1 class="visually-hidden">
+                        AK Data Solutions
                     </h1>
 
                     <p>
@@ -56,6 +82,8 @@
                     Ready
                 </span>
 
+                <span class="app-version" id="appVersion" title="App version">v{{APP_VERSION}}</span>
+
             </div>
 
         </header>
@@ -66,6 +94,8 @@
         <main>
 
             <section class="hero">
+
+              <div class="hero-copy">
 
                 <div class="eyebrow">
                     AI-POWERED RESEARCH
@@ -81,6 +111,14 @@
                     plan, investigate, verify and synthesize the findings.
                 </p>
 
+              </div>
+
+              <img
+                  class="hero-image"
+                  src="/static/hero.webp"
+                  alt="AI agent connecting documents, spreadsheets, databases, workflows and the web"
+              >
+
             </section>
 
 
@@ -95,6 +133,30 @@
                 <p class="mode-hint">
                     Start with <strong>/</strong> to search your organization's own documents and data instead of the web.
                 </p>
+
+                <details class="samples">
+
+                    <summary>Not sure what to ask? <span>See sample questions</span></summary>
+
+                    <p class="sample-tip">Click a question to put it in the box, then press Start Research.</p>
+
+                    <p class="sample-group">Your data (starts with /)</p>
+                    <button type="button" class="sample-q" data-q="/ What is our donor churn rate by year?">/ What is our donor churn rate by year?</button>
+                    <button type="button" class="sample-q" data-q="/ Which donors have lapsed and how much did they give in total?">/ Which donors have lapsed and how much did they give in total?</button>
+                    <button type="button" class="sample-q" data-q="/ Who are our top 5 donors across all years and are they still active?">/ Who are our top 5 donors across all years and are they still active?</button>
+                    <button type="button" class="sample-q" data-q="/ Which companies stopped giving?">/ Which companies stopped giving?</button>
+                    <button type="button" class="sample-q" data-q="/ What did the board decide about lapsed donors?">/ What did the board decide about lapsed donors?</button>
+                    <button type="button" class="sample-q" data-q="/ What is our policy for pledges over $10,000?">/ What is our policy for pledges over $10,000?</button>
+                    <p class="sample-group">Charts from your data</p>
+                    <button type="button" class="sample-q" data-q="/ Chart our donor churn rate by year">/ Chart our donor churn rate by year</button>
+                    <button type="button" class="sample-q" data-q="/ Show a bar graph of total pledges per year">/ Show a bar graph of total pledges per year</button>
+                    <button type="button" class="sample-q" data-q="/ Graph the top 10 donors by total giving">/ Graph the top 10 donors by total giving</button>
+                    <button type="button" class="sample-q" data-q="/ Pie chart of individual vs company pledges in 2025">/ Pie chart of individual vs company pledges in 2025</button>
+                    <p class="sample-group">The web (no /)</p>
+                    <button type="button" class="sample-q" data-q="Best practices for improving nonprofit donor retention">Best practices for improving nonprofit donor retention</button>
+                    <button type="button" class="sample-q" data-q="Benefits of solar energy for homes">Benefits of solar energy for homes</button>
+
+                </details>
 
                 <textarea
                     id="topic"
@@ -122,12 +184,17 @@
 
                 </div>
 
+                <p class="speed-note">
+                    <span class="speed-icon">⏱</span>
+                    <span><strong>Testing phase:</strong> this demo runs on a small test server, so results can take a few minutes. On the live system, results come back in seconds.</span>
+                </p>
+
             </section>
 
 
             <!-- Capabilities -->
 
-            <section class="capabilities">
+            <section class="capabilities" aria-label="How the research works: planning, research, verification, synthesis">
 
                 <div class="capability">
 
@@ -148,6 +215,8 @@
                 </div>
 
 
+                <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+
                 <div class="capability">
 
                     <span class="capability-icon">
@@ -167,6 +236,8 @@
                 </div>
 
 
+                <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+
                 <div class="capability">
 
                     <span class="capability-icon">
@@ -185,6 +256,8 @@
 
                 </div>
 
+
+                <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
 
                 <div class="capability">
 
@@ -253,6 +326,11 @@
                     Preparing research...
                 </div>
 
+                <p class="speed-note">
+                    <span class="speed-icon">⏱</span>
+                    <span><strong>Testing phase:</strong> this demo runs on a small test server, so results can take a few minutes. On the live system, results come back in seconds.</span>
+                </p>
+
                 <div
                 id="activity"
                 class="activity-list"
@@ -283,8 +361,42 @@
 
                     </div>
 
+                    <div class="result-actions">
+
+                    <!-- Opens the print window; choose "Save as PDF" -->
+                    <button
+                        id="downloadPdf"
+                        class="download-button"
+                        type="button"
+                    >
+                        <span>⬇</span> Download as PDF
+                    </button>
+
+                    <!-- Shown only when the answer has data from your database -->
+                    <button
+                        id="downloadExcel"
+                        class="download-button hidden"
+                        type="button"
+                    >
+                        <span>⬇</span> Download as Excel
+                    </button>
+
+                    </div>
+
                 </div>
 
+
+                <!-- Only visible in the PDF / printout -->
+                <div class="print-header">
+                    <img src="/static/logo.png" alt="AK Data Solutions">
+                    <div>
+                        <p class="print-question" id="printQuestion"></p>
+                        <p class="print-meta" id="printMeta"></p>
+                    </div>
+                </div>
+
+                <!-- Charts (only for chart requests on "/" questions) -->
+                <div id="charts" class="charts"></div>
 
                 <article
                     id="result"
@@ -306,14 +418,18 @@
 
         <footer>
 
-            Built with a real AI Research Agent
+            Demo of the AK Data Solutions Research AI Agent · Sample data only, not for production use ·
+            <a href="/static/policy.html">Demo policy</a> ·
+            Version <span id="footerVersion">{{APP_VERSION}}</span>
 
         </footer>
 
     </div>
 
 
-    <script src="/static/app.js"></script>
+    <!-- Chart.js 4.4.1 (MIT), served from this site -->
+    <script src="/static/chart.umd.js?v=4.4.1"></script>
+    <script src="/static/app.js?v={{APP_VERSION}}"></script>
 
 </body>
 </html>

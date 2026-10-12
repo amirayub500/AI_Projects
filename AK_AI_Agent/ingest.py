@@ -7,6 +7,9 @@ Run it on a folder; it walks all sub-folders.
     python ingest.py data/inbox --reimport      import again even if already loaded
     python ingest.py --status                   show what is loaded
 
+If a spreadsheet has donor_id, pledge_amount and date_of_pledge columns, the
+import also creates v_donor_retention (churn by year) and v_donor_summary.
+
 In Docker on the server (files placed in ~/AI_Projects/AK_AI_Agent/data/inbox):
     docker compose run --rm app python ingest.py data/inbox
 
@@ -275,6 +278,12 @@ def main():
             result = ingest_file(conn, path, args.reimport, use_ocr)
             conn.commit()     # save after every file, so a crash loses nothing
             print(f"[{count}] {path}: {result}")
+
+        # Donor churn/retention views, rebuilt after every import
+        views = company_db.refresh_donor_views(conn)
+        conn.commit()
+        if views:
+            print("\nDonor analytics views: " + ", ".join(views))
 
     print(f"\nDone: {count} file(s) in {time.monotonic() - started:.1f} s")
     print_status(args.db)

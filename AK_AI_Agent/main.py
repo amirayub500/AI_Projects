@@ -13,8 +13,9 @@ On a server: docker compose up -d --build   (see DEPLOY.md)
 Endpoints:
     GET  /                     -> frontend/index.html (the web UI)
     GET  /static/...           -> frontend/app.js, style.css
-    GET  /health               -> {"status": "healthy"}   (is the server up?)
+    GET  /health               -> {"status": "healthy", "version": ...}   (is the server up?)
     POST /chat                 -> whole pipeline, one JSON answer at the end
+    POST /export-excel         -> .xlsx of the tables behind a "/" answer
     GET  /research?topic=...   -> STREAMING: live progress events, then the report
                                   (this is what the web UI uses)
     GET  /company-data         -> what client data is loaded (counts + tables)
@@ -49,8 +50,10 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from agent import run_agent, research_agent, generate_report, MAX_STEPS
+from agent import run_agent, research_agent, generate_report, wants_chart, MAX_STEPS
 import company_db
+from export_excel import build_workbook, MAX_ROWS as EXPORT_MAX_ROWS
+from version import APP_VERSION
 from schemas import ChatRequest, ChatResponse
 
 
@@ -125,26 +128,68 @@ def run_research_job(topic, progress_callback, mode="web"):
     """
     The whole web-UI job, run on ONE worker thread so the lock covers it all:
     research (plan + loop + verify), then the report from verified findings.
+    Returns (report_text, charts, tables).
     """
 
     session = research_agent(topic, MAX_STEPS, progress_callback, mode)
+
+    # Charts only work on the organization's own data ("/" questions)
+    chart_note = ""
+    if mode == "web" and wants_chart(topic):
+        chart_note = (
+            "Note: charts are only available for your own data. "
+            "Start your question with / to get a chart, "
+            "e.g. / Chart our donor churn rate by year\n\n"
+        )
+
+    # Charts made by create_chart (company mode only). Their numbers come
+    # straight from the database, so they are sent to the page as they are.
+    charts = session.charts
+
+    # Data for "Download as Excel": each chart's query and each database query
+    # the agent ran, re-run with a higher row limit (still read-only)
+    tables = export_tables(session) if mode == "company" else []
 
     # research_agent only GATHERS findings.
     # Step 4 SYNTHESIZE: build the structured report from the verified ones.
     verified_notes = session.verified_notes()
 
     if not verified_notes:
-        return (
+        return chart_note + (
             "No verified findings were collected within "
             f"{MAX_STEPS} steps. Try again or raise MAX_STEPS."
-        )
+        ), charts, tables
 
     progress_callback({
         "type": "step",
         "message": f"Writing report from {len(verified_notes)} verified finding(s)"
     })
 
-    return generate_report(topic, verified_notes)
+    return chart_note + generate_report(topic, verified_notes), charts, tables
+
+
+def export_tables(session):
+    """
+    The tables behind a "/" answer, for the Download as Excel button:
+    [{"title", "sql", "columns", "rows"}], one per distinct query.
+    """
+    jobs = [(chart["title"], chart["sql"]) for chart in session.charts]
+    jobs += [(f"Query {i}", sql) for i, sql in enumerate(session.queries, start=1)]
+
+    tables, seen = [], set()
+    for title, sql in jobs:
+        key = " ".join(sql.split()).lower()
+        if not sql or key in seen:
+            continue
+        seen.add(key)
+        try:
+            result = company_db.run_select(sql, max_rows=EXPORT_MAX_ROWS)
+        except Exception:
+            continue
+        if result["rows"]:
+            tables.append({"title": title, "sql": sql,
+                           "columns": result["columns"], "rows": result["rows"]})
+    return tables
 
 
 # ---------------------------------------------------------------------
@@ -162,12 +207,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Research AI Agent",
-    version="1.1.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 
 # (No CORS middleware: the web UI is served from this same server, so
 #  other websites don't need to call this API from their pages.)
+
+
+@app.middleware("http")
+async def no_stale_pages(request: Request, call_next):
+    """
+    Make browsers check for a newer page, script or stylesheet on every load
+    (cheap: unchanged files come back as "304 Not Modified"). Without this,
+    a browser can keep showing an old version after an update.
+    """
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.endswith((".html", ".js", ".css")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.middleware("http")
@@ -212,12 +270,40 @@ app.mount(
 
 @app.get("/")
 async def home():
-    return FileResponse("frontend/index.html")
+    # Put the app version into the page (see version.py)
+    with open("frontend/index.html", encoding="utf-8") as f:
+        page = f.read().replace("{{APP_VERSION}}", APP_VERSION)
+    return Response(page, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/export-excel")
+async def export_excel(request: Request):
+    """
+    Download as Excel: the page posts {"question", "tables"} from the answer
+    it received and gets back an .xlsx file (built in export_excel.py).
+    """
+    try:
+        body = await request.json()
+        question = str(body.get("question", ""))[:500]
+        tables = body.get("tables") or []
+        if not isinstance(tables, list) or not tables:
+            raise ValueError
+    except Exception:
+        raise HTTPException(status_code=400, detail="No table data to export.")
+
+    data = await run_in_threadpool(build_workbook, question, tables)
+    name = "research_export_" + time.strftime("%Y%m%d_%H%M") + ".xlsx"
+
+    return Response(
+        data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "version": APP_VERSION}
 
 
 @app.get("/company-data")
@@ -318,8 +404,11 @@ async def research(topic: str, request: Request):
         # Format one dict as a Server-Sent Event line
         return "data: " + json.dumps(event) + "\n\n"
 
-    def finish(text):
-        return sse({"type": "complete", "report": text})
+    def finish(text, charts=None, tables=None):
+        # "charts" is a list of chart dicts (see tools.create_chart); the page draws them.
+        # "tables" is the data behind the answer, for the Download as Excel button.
+        return sse({"type": "complete", "report": text,
+                    "charts": charts or [], "tables": tables or []})
 
     async def event_stream():
 
@@ -381,16 +470,17 @@ async def research(topic: str, request: Request):
             except asyncio.TimeoutError:
                 continue
 
+        charts, tables = [], []
         try:
             # Re-raises any exception from the job thread (e.g. Ollama not running)
-            result = await task
+            result, charts, tables = await task
 
         except Exception as exc:
             # Show the problem in the UI instead of silently cutting the stream
             result = f"Error during research: {exc}"
 
-        # Final event: the frontend shows "report" as the result
-        yield finish(result)
+        # Final event: the frontend shows "report" as the result, charts above it
+        yield finish(result, charts, tables)
 
     return StreamingResponse(
         event_stream(),

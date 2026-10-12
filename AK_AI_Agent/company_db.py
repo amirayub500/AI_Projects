@@ -293,6 +293,134 @@ def add_table(conn, df, file_name, sheet=None):
 
 
 # =====================================================================
+# Donor analytics views (churn / retention)
+# =====================================================================
+
+PLEDGE_COLUMNS = {"donor_id", "pledge_amount", "date_of_pledge"}
+
+
+def refresh_donor_views(conn):
+    """
+    If any imported table looks like donor pledges (donor_id, pledge_amount,
+    date_of_pledge), (re)create two ready-made SQL views the agent can query:
+
+      v_donor_retention  one row per year: active donors, retained from the year
+                         before, new or returning, lapsed, churn_rate_pct,
+                         retention_rate_pct, total_pledged, year_complete
+      v_donor_summary    one row per donor: name, company, first/last year,
+                         years with pledges, total pledged, active or lapsed
+      v_pledges          every pledge from all pledge tables in one place, with a
+                         year column (used for charts by month, year, company...)
+
+    Churn for year Y = donors who pledged in Y-1 but not in Y, divided by
+    donors who pledged in Y-1. Views compute live, so they always match the data.
+    Returns the list of views created.
+    """
+
+    for view in ("v_donor_retention", "v_donor_summary", "v_pledges"):
+        conn.execute(f"DROP VIEW IF EXISTS {view}")
+    conn.execute("DELETE FROM data_tables WHERE table_name LIKE 'v\\_%' ESCAPE '\\'")
+
+    tables = []
+    for name, columns in conn.execute(
+        "SELECT table_name, columns FROM data_tables WHERE table_name NOT LIKE 'v\\_%' ESCAPE '\\'"
+    ):
+        cols = {c.strip() for c in columns.split(",")}
+        if PLEDGE_COLUMNS <= cols:
+            tables.append((name, cols))
+
+    if not tables:
+        return []
+
+    def pick(col, cols):
+        return col if col in cols else f"NULL AS {col}"
+
+    union = " UNION ALL ".join(
+        f"SELECT donor_id, {pick('donor_name', cols)}, {pick('company_name', cols)}, "
+        f"pledge_amount, date_of_pledge FROM {name}"
+        for name, cols in tables
+    )
+
+    conn.execute(f"""
+        CREATE VIEW v_donor_retention AS
+        WITH p AS ({union}),
+        g AS (
+            SELECT DISTINCT donor_id, CAST(substr(date_of_pledge, 1, 4) AS INTEGER) AS yr
+            FROM p WHERE date_of_pledge IS NOT NULL
+        ),
+        y AS (
+            SELECT g.yr, COUNT(*) AS donors,
+                   (SELECT ROUND(SUM(pledge_amount), 2) FROM p
+                     WHERE CAST(substr(date_of_pledge, 1, 4) AS INTEGER) = g.yr) AS total
+            FROM g GROUP BY g.yr
+        ),
+        r AS (
+            SELECT cur.yr, COUNT(*) AS retained
+            FROM g cur JOIN g prev ON prev.donor_id = cur.donor_id AND prev.yr = cur.yr - 1
+            GROUP BY cur.yr
+        )
+        SELECT
+            y.yr AS year,
+            CASE WHEN y.yr < CAST(strftime('%Y', 'now') AS INTEGER) THEN 1 ELSE 0 END AS year_complete,
+            y.donors AS active_donors,
+            prev.donors AS prior_year_donors,
+            COALESCE(r.retained, 0) AS retained_donors,
+            y.donors - COALESCE(r.retained, 0) AS new_or_returning_donors,
+            prev.donors - COALESCE(r.retained, 0) AS lapsed_donors,
+            ROUND(100.0 * (prev.donors - COALESCE(r.retained, 0)) / prev.donors, 1) AS churn_rate_pct,
+            ROUND(100.0 * COALESCE(r.retained, 0) / prev.donors, 1) AS retention_rate_pct,
+            y.total AS total_pledged
+        FROM y
+        LEFT JOIN y AS prev ON prev.yr = y.yr - 1
+        LEFT JOIN r ON r.yr = y.yr
+        ORDER BY y.yr
+    """)
+
+    conn.execute(f"""
+        CREATE VIEW v_donor_summary AS
+        WITH p AS ({union}),
+        latest AS (SELECT MAX(CAST(substr(date_of_pledge, 1, 4) AS INTEGER)) AS yr FROM p)
+        SELECT
+            donor_id,
+            MAX(donor_name) AS donor_name,
+            MAX(company_name) AS company_name,
+            MIN(CAST(substr(date_of_pledge, 1, 4) AS INTEGER)) AS first_year,
+            MAX(CAST(substr(date_of_pledge, 1, 4) AS INTEGER)) AS last_year,
+            COUNT(DISTINCT substr(date_of_pledge, 1, 4)) AS years_with_pledges,
+            COUNT(*) AS pledges,
+            ROUND(SUM(pledge_amount), 2) AS total_pledged,
+            MAX(date_of_pledge) AS last_pledge_date,
+            CASE WHEN MAX(CAST(substr(date_of_pledge, 1, 4) AS INTEGER)) = (SELECT yr FROM latest)
+                 THEN 'active' ELSE 'lapsed' END AS status
+        FROM p
+        GROUP BY donor_id
+        ORDER BY total_pledged DESC
+    """)
+
+    conn.execute(f"""
+        CREATE VIEW v_pledges AS
+        WITH p AS ({union})
+        SELECT donor_id, donor_name, company_name, pledge_amount, date_of_pledge,
+               CAST(substr(date_of_pledge, 1, 4) AS INTEGER) AS year
+        FROM p
+        WHERE date_of_pledge IS NOT NULL
+    """)
+
+    source = ", ".join(n for n, _ in tables)
+    for view in ("v_donor_retention", "v_donor_summary", "v_pledges"):
+        cursor = conn.execute(f"SELECT * FROM {view}")
+        columns = ", ".join(d[0] for d in cursor.description)
+        rows = len(cursor.fetchall())
+        conn.execute(
+            "INSERT OR REPLACE INTO data_tables (table_name, source_file, sheet, rows, columns) "
+            "VALUES (?, ?, '', ?, ?)",
+            (view, source, rows, columns),
+        )
+
+    return ["v_donor_retention", "v_donor_summary", "v_pledges"]
+
+
+# =====================================================================
 # Reading (agent tools)
 # =====================================================================
 
@@ -356,8 +484,11 @@ def describe_tables(path=None):
 
     lines = []
     for name, source, sheet, n_rows, columns in rows:
-        origin = source + (f" [{sheet}]" if sheet else "")
-        lines.append(f"- {name} ({n_rows} rows, from {origin}): {columns}")
+        if name.startswith("v_"):
+            origin = "calculated view over " + source
+        else:
+            origin = "from " + source + (f" [{sheet}]" if sheet else "")
+        lines.append(f"- {name} ({n_rows} rows, {origin}): {columns}")
 
     return "\n".join(lines)
 
@@ -373,7 +504,7 @@ def document_summary(path=None):
 _READ_ONLY_SQL = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
 
 
-def run_select(sql, path=None):
+def run_select(sql, path=None, max_rows=None):
     """
     Run ONE read-only SELECT statement and return {columns, rows, truncated}.
     Protections: read-only connection, SELECT/WITH only, single statement,
@@ -397,10 +528,11 @@ def run_select(sql, path=None):
 
         cursor = conn.execute(sql)
         columns = [d[0] for d in cursor.description or []]
-        rows = cursor.fetchmany(MAX_SQL_ROWS + 1)
+        limit = max_rows or MAX_SQL_ROWS
+        rows = cursor.fetchmany(limit + 1)
 
     return {
         "columns": columns,
-        "rows": [list(r) for r in rows[:MAX_SQL_ROWS]],
-        "truncated": len(rows) > MAX_SQL_ROWS,
+        "rows": [list(r) for r in rows[:limit]],
+        "truncated": len(rows) > limit,
     }

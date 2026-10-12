@@ -37,6 +37,7 @@ Builds on:
 """
 
 import json
+import re
 
 import requests
 from bs4 import BeautifulSoup          # pip install beautifulsoup4  (HTML -> text)
@@ -206,6 +207,161 @@ def read_webpage(url):
 
 
 # =====================================================================
+# Charts (company mode)
+# =====================================================================
+
+def build_chart(sql, chart_type="bar", title=""):
+    """
+    Run a SELECT and turn the rows into a chart dict for the web page.
+    First column = labels; the next number columns (up to 3) = data series.
+    Returns (chart, None) or (None, "error message").
+    """
+    chart_type = str(chart_type or "bar").strip().lower()
+    if chart_type not in ("bar", "line", "pie"):
+        chart_type = "bar"
+
+    try:
+        result = company_db.run_select(sql)
+    except Exception as exc:
+        return None, str(exc)
+
+    columns, rows = result["columns"], result["rows"]
+    if not rows or len(columns) < 2:
+        return None, "The query must return rows with a label column and at least one number column."
+
+    def is_number(value):
+        return value is None or (isinstance(value, (int, float)) and not isinstance(value, bool))
+
+    # Number columns = columns after the first whose values are all numbers (or empty)
+    numeric = [i for i in range(1, len(columns))
+               if all(is_number(row[i]) for row in rows)
+               and any(row[i] is not None for row in rows)]
+    if not numeric:
+        return None, "No number columns found. Put the label first and numbers after it."
+
+    # Pie charts show a single series; bar/line up to 3
+    numeric = numeric[:1] if chart_type == "pie" else numeric[:3]
+
+    # Drop rows with no numbers at all (e.g. the first year has no churn yet)
+    rows = [row for row in rows if any(row[i] is not None for i in numeric)]
+
+    # One point is not a chart (e.g. the model filtered to a single year)
+    if len(rows) < 2:
+        return None, (
+            "Only one row has data, so there is nothing to compare. "
+            "Remove filters such as WHERE year = ... so the query returns "
+            "every year or item, then call create_chart again."
+        )
+
+    chart = {
+        "type": chart_type,
+        "title": str(title or "").strip()[:120] or "Chart",
+        "labels": ["" if row[0] is None else str(row[0]) for row in rows],
+        "datasets": [
+            {"label": columns[i],
+             "data": [None if row[i] is None else round(float(row[i]), 2) for row in rows]}
+            for i in numeric
+        ],
+        "source": "Company database query",
+        "sql": sql.strip(),
+        "truncated": result["truncated"],
+        # The rows behind the chart (also used for the model and the report)
+        "columns": [columns[0]] + [columns[i] for i in numeric],
+        "rows": [[row[0]] + [row[i] for i in numeric] for row in rows],
+    }
+    return chart, None
+
+
+def ready_made_chart(user_request):
+    """
+    Common chart questions on donor data, answered with a fixed, tested query
+    (no model needed, so the chart is the same every time).
+    Returns (sql, chart_type, title) or None when the question is not covered
+    or the donor views do not exist.
+    """
+    text = user_request.lower()
+
+    try:
+        views = {row[0] for row in company_db.run_select(
+            "SELECT table_name FROM data_tables WHERE table_name LIKE 'v%'")["rows"]}
+    except Exception:
+        return None
+    if "v_donor_retention" not in views:
+        return None
+
+    has = lambda *words: any(w in text for w in words)
+    year = re.search(r"\b(20\d{2})\b", text)
+    top = re.search(r"\btop\s+(\d{1,2})\b", text)
+    limit = min(int(top.group(1)), 25) if top else 10
+    pledges_view = "v_pledges" in views
+
+    # Churn / retention over the years
+    if has("churn", "retention", "retain", "lapse rate", "lapsed rate"):
+        return ("SELECT year, churn_rate_pct, retention_rate_pct FROM v_donor_retention "
+                "WHERE churn_rate_pct IS NOT NULL ORDER BY year",
+                "line", "Donor churn and retention rate by year (%)")
+
+    # Individual vs company giving
+    if pledges_view and has("individual") and has("compan", "corporate", "business"):
+        where = f"WHERE year = {year.group(1)} " if year else ""
+        return ("SELECT CASE WHEN company_name IS NULL OR TRIM(company_name) = '' "
+                "THEN 'Individuals' ELSE 'Companies' END AS donor_type, "
+                f"ROUND(SUM(pledge_amount), 2) AS total_pledged FROM v_pledges {where}"
+                "GROUP BY 1 ORDER BY 2 DESC",
+                "pie", "Individual vs company pledges" + (f", {year.group(1)}" if year else " (all years)"))
+
+    # Top companies
+    if pledges_view and has("compan", "corporate", "business") and has("top", "largest", "biggest", "most"):
+        where = f"AND year = {year.group(1)} " if year else ""
+        return ("SELECT company_name, ROUND(SUM(pledge_amount), 2) AS total_pledged FROM v_pledges "
+                f"WHERE company_name IS NOT NULL AND TRIM(company_name) <> '' {where}"
+                f"GROUP BY company_name ORDER BY total_pledged DESC LIMIT {limit}",
+                "bar", f"Top {limit} companies by total pledged" + (f", {year.group(1)}" if year else ""))
+
+    # Top donors
+    if has("donor", "giver", "supporter") and has("top", "largest", "biggest", "most"):
+        if year and pledges_view:
+            return ("SELECT donor_name, ROUND(SUM(pledge_amount), 2) AS total_pledged FROM v_pledges "
+                    f"WHERE year = {year.group(1)} GROUP BY donor_id ORDER BY total_pledged DESC LIMIT {limit}",
+                    "bar", f"Top {limit} donors by total pledged, {year.group(1)}")
+        return (f"SELECT donor_name, total_pledged FROM v_donor_summary ORDER BY total_pledged DESC LIMIT {limit}",
+                "bar", f"Top {limit} donors by total pledged (all years)")
+
+    # Number of donors per year
+    if has("donor") and has("number", "count", "how many", "active", "new"):
+        return ("SELECT year, active_donors, new_or_returning_donors, lapsed_donors "
+                "FROM v_donor_retention ORDER BY year",
+                "bar", "Donors per year: active, new or returning, lapsed")
+
+    # Pledges by month (for one year)
+    if pledges_view and has("month") and has("pledge", "giving", "gift", "donation", "amount", "total"):
+        y = year.group(1) if year else None
+        where = f"WHERE year = {y} " if y else ""
+        return ("SELECT substr(date_of_pledge, 1, 7) AS month, ROUND(SUM(pledge_amount), 2) AS total_pledged "
+                f"FROM v_pledges {where}GROUP BY 1 ORDER BY 1",
+                "line", "Pledges by month" + (f", {y}" if y else ""))
+
+    # Pledge totals per year
+    if has("pledge", "giving", "gift", "donation", "amount", "total", "revenue", "raised"):
+        return ("SELECT year, total_pledged FROM v_donor_retention ORDER BY year",
+                "bar", "Total pledged per year")
+
+    return None
+
+
+def add_chart_to_session(session, chart):
+    """Keep the chart, plus a VERIFIED note (its numbers come straight from the database)."""
+    session.charts.append(chart)
+    session.notes.append({
+        "source": "Company database (chart: " + chart["title"] + ")",
+        "finding": "Chart data for " + chart["title"],
+        "evidence": json.dumps({"columns": chart["columns"], "rows": chart["rows"]}),
+        "verified": True,
+    })
+
+
+
+# =====================================================================
 # Per-request state
 # =====================================================================
 
@@ -221,6 +377,13 @@ class ResearchSession:
 
         # The model's last message (set by agent.py when it finishes)
         self.final_message = ""
+
+        # Charts made by create_chart (company mode). Each one:
+        # {"type", "title", "labels", "datasets": [{"label", "data"}], "source", "sql"}
+        self.charts = []
+
+        # SQL of query_database calls that returned rows (chart safety net)
+        self.queries = []
 
     def verified_notes(self):
         """Only the notes verify_finding approved (used for the report)."""
@@ -308,7 +471,7 @@ def make_tools(session, mode="web"):
     are what the model sees, exactly as before.
 
     mode="web"     -> search_web + read_webpage
-    mode="company" -> search_documents + query_database (the client's data only)
+    mode="company" -> search_documents + query_database + create_chart (the client's data only)
     """
 
     def add_research_note(
@@ -419,6 +582,39 @@ def make_tools(session, mode="web"):
 
         return result
 
+
+    def create_chart(sql, chart_type="bar", title=""):
+        """
+        Draw a chart for the user from the organization's database.
+
+        Write ONE SELECT whose FIRST column is the labels (year, donor name...)
+        and the next 1 to 3 columns are numbers (one line or bar set each).
+        The chart is drawn from the real query results.
+
+        Args:
+            sql: A single SELECT, e.g.
+                 SELECT year, churn_rate_pct FROM v_donor_retention WHERE churn_rate_pct IS NOT NULL
+            chart_type: "bar" (compare items), "line" (trend over time) or "pie" (parts of a whole).
+            title: A short chart title.
+
+        Returns:
+            Confirmation with the rows the chart shows, or an error to fix.
+        """
+        chart, error = build_chart(sql, chart_type, title)
+        if error:
+            return {"status": "error", "error": error}
+
+        add_chart_to_session(session, chart)
+
+        return {
+            "status": "chart_created",
+            "chart_type": chart["type"],
+            "title": chart["title"],
+            "columns": chart["columns"],
+            "rows": chart["rows"],
+            "next": "The chart is shown to the user. Briefly explain what it shows, then finish.",
+        }
+
     note_tools = [
         add_research_note,
         get_research_notes,
@@ -426,6 +622,6 @@ def make_tools(session, mode="web"):
     ]
 
     if mode == "company":
-        return [search_documents, query_database] + note_tools
+        return [search_documents, query_database, create_chart] + note_tools
 
     return [search_web, read_webpage] + note_tools

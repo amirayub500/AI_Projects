@@ -36,7 +36,7 @@ import time
 # chat() calls Ollama with MODEL and a timeout (both set in llm.py)
 from llm import chat
 
-from tools import ResearchSession, make_tools
+from tools import build_chart, add_chart_to_session, ready_made_chart, ResearchSession, make_tools
 import company_db
 
 
@@ -120,7 +120,101 @@ def generate_report(
     return response.message.content
 
 
+CHART_WORDS = ("chart", "graph", "plot", "visual", "diagram")
+
+
+def wants_chart(text):
+    """True when the request asks for a chart/graph/plot (used in company mode)."""
+    lowered = text.lower()
+    return any(word in lowered for word in CHART_WORDS)
+
+
 def research_agent(
+    user_request,
+    max_steps=MAX_STEPS, progress_callback=None,
+    mode="web"
+):
+    """
+    Run the research loop (below), then make sure a requested chart exists.
+    See _research_loop for the details; returns the ResearchSession.
+    """
+    # Fast path: common chart questions use a fixed, tested query.
+    # Same chart every time, and no research loop (1 model call for the summary).
+    if mode == "company" and wants_chart(user_request):
+        ready = ready_made_chart(user_request)
+        if ready:
+            sql, chart_type, title = ready
+            chart, error = build_chart(sql, chart_type, title)
+            if chart:
+                session = ResearchSession()
+                add_chart_to_session(session, chart)
+                print("\nReady-made chart:", title, "|", sql)
+                if progress_callback:
+                    progress_callback({"type": "plan", "message": "Research plan created"})
+                    progress_callback({"type": "step", "message": "Chart created from the database"})
+                session.final_message = "Chart created."
+                return session
+
+    session = _research_loop(user_request, max_steps, progress_callback, mode)
+
+    if mode == "company" and wants_chart(user_request):
+        ensure_chart(session, user_request, progress_callback)
+
+    return session
+
+
+def guess_chart_type(user_request, chart):
+    """pie / line / bar from the wording, or line when the labels are years or dates."""
+    text = user_request.lower()
+    if "pie" in text:
+        return "pie"
+    if "bar" in text:
+        return "bar"
+    if any(w in text for w in ("line", "trend", "over time", "by year", "per year", "monthly")):
+        return "line"
+    first_label = chart["labels"][0] if chart["labels"] else ""
+    if chart["columns"][0].lower() in ("year", "month", "date") or first_label[:2] in ("19", "20"):
+        return "line"
+    return "bar"
+
+
+def ensure_chart(session, user_request, progress_callback=None):
+    """
+    Safety net for small models: the user asked for a chart but create_chart
+    was never called. Draw it from the model's last query that returned rows;
+    for churn/retention questions, fall back to the v_donor_retention view.
+    """
+    if session.charts:
+        return
+
+    title = user_request.strip().rstrip("?.!")[:80]
+    title = title[:1].upper() + title[1:]
+
+    candidates = list(reversed(session.queries))
+    text = user_request.lower()
+    if any(w in text for w in ("churn", "retention", "retain", "lapsed")):
+        candidates.append(
+            "SELECT year, churn_rate_pct, retention_rate_pct FROM v_donor_retention "
+            "WHERE churn_rate_pct IS NOT NULL ORDER BY year"
+        )
+    if session.queries == [] and ready_made_chart(user_request):
+        candidates.insert(0, ready_made_chart(user_request)[0])
+
+    for sql in candidates:
+        chart, error = build_chart(sql, "bar", title)
+        if error:
+            continue
+        chart["type"] = guess_chart_type(user_request, chart)
+        if chart["type"] == "pie":
+            chart["datasets"] = chart["datasets"][:1]
+        add_chart_to_session(session, chart)
+        print("\nChart drawn from the database query:", sql)
+        if progress_callback:
+            progress_callback({"type": "step", "message": "Chart created from the database"})
+        return
+
+
+def _research_loop(
     user_request,
     max_steps=MAX_STEPS, progress_callback=None,
     mode="web"
@@ -215,6 +309,17 @@ def research_agent(
                 "Do not invent sources or evidence."
         )
 
+    # Chart requests: small models tend to search first and run out of steps,
+    # so tell them plainly to start with create_chart.
+    chart_hint = ""
+    if mode == "company" and wants_chart(user_request):
+        chart_hint = (
+            "\n\nThe user wants a chart. Your FIRST tool call must be "
+            "create_chart with a SELECT (labels first, then numbers). "
+            "For churn or retention use v_donor_retention. "
+            "After the chart is created, give a short explanation and finish."
+        )
+
     messages = [
         {
             "role": "system",
@@ -225,6 +330,7 @@ def research_agent(
             "content": (
                 f"Research request:\n{user_request}\n\n"
                 f"Research plan:\n{plan}"
+                f"{chart_hint}"
             )
         }
     ]
@@ -415,6 +521,15 @@ def research_agent(
                         **arguments
                     )
 
+                    # Remember queries that returned rows: if the user asked
+                    # for a chart and the model never draws one, we can.
+                    if (
+                        tool_name == "query_database"
+                        and isinstance(result, dict)
+                        and result.get("rows")
+                    ):
+                        session.queries.append(arguments.get("sql", ""))
+
                     emit({
                         "type": "tool_complete",
                         "tool": tool_name,
@@ -482,7 +597,8 @@ def company_system_prompt(max_steps):
         "You are a research agent for an organization. "
         "Answer ONLY from the organization's own data, using these tools: "
         "search_documents (letters, minutes, reports, policies) and "
-        "query_database (spreadsheet tables, read-only SQLite SELECT). "
+        "query_database (spreadsheet tables, read-only SQLite SELECT) and "
+        "create_chart (draws a chart from a SELECT). "
         "Do not use outside knowledge and do not invent facts.\n\n"
 
         f"Loaded: {counts['documents']} document(s) and {counts['tables']} table(s).\n"
@@ -492,7 +608,19 @@ def company_system_prompt(max_steps):
         "Tips: use query_database for amounts, counts, totals and dates "
         "(amounts are numbers; dates are 'YYYY-MM-DD' text, so use BETWEEN or "
         "comparisons). Use search_documents for names, topics and context. "
-        "For a person or organization, check both.\n\n"
+        "For a person or organization, check both. "
+        "Donor Name is a person; Company Name is the organization (empty for individuals). "
+        "For donor churn, retention, lapsed or new donors, query the views "
+        "v_donor_retention (one row per year; churn_rate_pct; year_complete = 0 means "
+        "the year is still in progress) and v_donor_summary (one row per donor, status "
+        "active or lapsed) instead of calculating it yourself.\n\n"
+
+        "Charts: if the user asks for a chart, graph, plot or visual, call create_chart "
+        "with ONE SELECT whose first column is the labels and the next 1-3 columns are numbers. "
+        "chart_type: 'line' for trends over years, 'bar' to compare items, 'pie' for parts of a whole. "
+        "Example: create_chart(sql=\"SELECT year, churn_rate_pct FROM v_donor_retention "
+        "WHERE churn_rate_pct IS NOT NULL\", chart_type=\"line\", title=\"Donor churn rate by year\"). "
+        "The chart counts as a verified finding, so you may finish right after it with a short explanation.\n\n"
 
         f"You have only {max_steps} steps in total. "
         "After you find something relevant, call add_research_note with "
@@ -513,6 +641,13 @@ def create_research_plan(
     (Step 1: PLAN - one LLM call, no tools. The plan text is
      pasted into the research agent's first message.)
     """
+
+    # Chart requests on company data: a fixed plan (saves one slow model call)
+    if mode == "company" and wants_chart(user_request):
+        return (
+            "1. Call create_chart with one SELECT that returns the labels and numbers.\n"
+            "2. Briefly explain what the chart shows."
+        )
 
     where = (
         "The research will use only the organization's own documents and "
