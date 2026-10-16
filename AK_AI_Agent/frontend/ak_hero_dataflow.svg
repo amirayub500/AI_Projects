@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 580 322" width="580" height="322" role="img" aria-label="Animated data flow: documents, databases, spreadsheets, web, workflows and APIs streaming into a central AI agent">
+  <title>AK Data Solutions — AI data flow</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0e3055"/><stop offset="45%" stop-color="#1b5a88"/><stop offset="100%" stop-color="#123a60"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="50%" cy="52%" r="74%">
+      <stop offset="0%" stop-color="#3f93cc" stop-opacity="0.40"/>
+      <stop offset="60%" stop-color="#1b5a88" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0a2240" stop-opacity="0.58"/>
+    </radialGradient>
+    <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a99bff" stop-opacity="0.80"/>
+      <stop offset="40%" stop-color="#7aa6e4" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#7aa6e4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hubCore" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#b3a6ff"/><stop offset="55%" stop-color="#7b7df5"/><stop offset="100%" stop-color="#5566e0"/>
+    </linearGradient>
+    <linearGradient id="nodeFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1d5480" stop-opacity="0.95"/><stop offset="100%" stop-color="#153e63" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="scan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7fe6f5" stop-opacity="0"/><stop offset="50%" stop-color="#7fe6f5" stop-opacity="0.45"/><stop offset="100%" stop-color="#7fe6f5" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="titleGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#a6f0fa"/><stop offset="55%" stop-color="#dcf1ff"/><stop offset="100%" stop-color="#bcc9ff"/>
+    </linearGradient>
+    <pattern id="grid" width="29" height="29" patternUnits="userSpaceOnUse">
+      <path d="M29 0H0V29" fill="none" stroke="#6fb6e4" stroke-width="0.7" stroke-opacity="0.18"/>
+    </pattern>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.6"/></filter>
+    <filter id="softer" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="8"/></filter>
+
+    <path id="p1" d="M92,108 Q 152,136 258,178"/>
+    <path id="p2" d="M488,108 Q 428,136 322,178"/>
+    <path id="p3" d="M58,202 Q 132,201 258,198"/>
+    <path id="p4" d="M522,202 Q 448,201 322,198"/>
+    <path id="p5" d="M120,282 Q 176,252 262,215"/>
+    <path id="p6" d="M460,282 Q 404,252 318,215"/>
+    <g id="pktShape"><rect x="-4.2" y="-2.6" width="8.4" height="5.2" rx="1.6" fill="#a6f0fa"/></g>
+  </defs>
+
+  <style>
+    .lbl{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:600;fill:#cfe7f7;letter-spacing:.2px;text-anchor:middle}
+    .ttl{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;text-anchor:middle}
+    .hubtxt{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:10px;fill:#fff;text-anchor:middle;letter-spacing:1px}
+    .ico{fill:none;stroke:#9aeaf9;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+    .wire{fill:none;stroke:#66a9dc;stroke-width:1;stroke-opacity:.5;stroke-dasharray:6 7;animation:dash 5s linear infinite}
+    @keyframes dash{to{stroke-dashoffset:-13}}
+    .float{animation:bob 14s ease-in-out infinite}
+    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+    .f2{animation-delay:-3.5s}.f3{animation-delay:-7s}.f4{animation-delay:-10.5s}.f5{animation-delay:-1.8s}.f6{animation-delay:-8.8s}
+  </style>
+
+  <rect width="580" height="322" fill="url(#bg)"/>
+  <g opacity="0.5"><rect width="638" height="380" x="-29" y="-29" fill="url(#grid)">
+    <animateTransform attributeName="transform" type="translate" values="0 0; 29 29; 0 0" dur="38s" repeatCount="indefinite"/>
+  </rect></g>
+  <rect width="580" height="322" fill="url(#vignette)"/>
+
+  <rect x="0" y="0" width="580" height="1.6" fill="url(#scan)" opacity="0.65">
+    <animate attributeName="y" values="72;302;72" dur="28s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;.65;.65;0" keyTimes="0;.12;.88;1" dur="28s" repeatCount="indefinite"/>
+  </rect>
+
+  <text class="ttl" x="290" y="34" font-size="19" fill="url(#titleGrad)">Turning Data into Decisions.</text>
+  <text class="ttl" x="290" y="58" font-size="17" fill="url(#titleGrad)" opacity="0.93">Bringing AI into Action.</text>
+
+  <g><use xlink:href="#p1" class="wire"/><use xlink:href="#p2" class="wire"/><use xlink:href="#p3" class="wire"/>
+     <use xlink:href="#p4" class="wire"/><use xlink:href="#p5" class="wire"/><use xlink:href="#p6" class="wire"/></g>
+
+  <g class="float">
+    <g transform="translate(92,108)">
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="url(#nodeFill)" stroke="#4e9bd6" stroke-opacity=".75" stroke-width="1.1"/>
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="none" stroke="#9aeaf9" stroke-width="1.1" opacity="0">
+        <animate attributeName="opacity" values="0;.85;0" dur="11s" begin="0s" repeatCount="indefinite"/></rect>
+      <g class="ico" transform="translate(-9,-10.5)"><path d="M3 0h8l5.5 5.5V21a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"/><path d="M11 0v5.5h5.5M5 12.5h8M5 17h6"/></g>
+    </g>
+    <text class="lbl" x="92" y="140">Documents</text>
+  </g>
+
+  <g class="float f2">
+    <g transform="translate(488,108)">
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="url(#nodeFill)" stroke="#4e9bd6" stroke-opacity=".75" stroke-width="1.1"/>
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="none" stroke="#9aeaf9" stroke-width="1.1" opacity="0">
+        <animate attributeName="opacity" values="0;.85;0" dur="11s" begin="1.8s" repeatCount="indefinite"/></rect>
+      <g class="ico" transform="translate(-10.5,-10.5)"><ellipse cx="10.5" cy="4.4" rx="9.4" ry="3.9"/><path d="M1.1 4.4v12.7c0 2.2 4.2 3.9 9.4 3.9s9.4-1.7 9.4-3.9V4.4"/><path d="M1.1 10.8c0 2.2 4.2 3.9 9.4 3.9s9.4-1.7 9.4-3.9"/></g>
+    </g>
+    <text class="lbl" x="488" y="140">Databases</text>
+  </g>
+
+  <g class="float f3">
+    <g transform="translate(58,202)">
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="url(#nodeFill)" stroke="#4e9bd6" stroke-opacity=".75" stroke-width="1.1"/>
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="none" stroke="#9aeaf9" stroke-width="1.1" opacity="0">
+        <animate attributeName="opacity" values="0;.85;0" dur="11s" begin="3.6s" repeatCount="indefinite"/></rect>
+      <g class="ico" transform="translate(-10.5,-10)"><rect x="0.5" y="0.5" width="20" height="20" rx="2.2"/><path d="M.5 7.2h20M.5 13.8h20M7.2.5v20M13.8.5v20"/></g>
+    </g>
+    <text class="lbl" x="58" y="234">Spreadsheets</text>
+  </g>
+
+  <g class="float f4">
+    <g transform="translate(522,202)">
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="url(#nodeFill)" stroke="#4e9bd6" stroke-opacity=".75" stroke-width="1.1"/>
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="none" stroke="#9aeaf9" stroke-width="1.1" opacity="0">
+        <animate attributeName="opacity" values="0;.85;0" dur="11s" begin="5.4s" repeatCount="indefinite"/></rect>
+      <g class="ico" transform="translate(-10.5,-10.5)"><circle cx="10.5" cy="10.5" r="10"/><path d="M.5 10.5h20M10.5.5c3.3 3.3 4.7 6.7 4.7 10s-1.4 6.7-4.7 10c-3.3-3.3-4.7-6.7-4.7-10S7.2 3.8 10.5.5z"/></g>
+    </g>
+    <text class="lbl" x="522" y="234">Web</text>
+  </g>
+
+  <g class="float f5">
+    <g transform="translate(120,282)">
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="url(#nodeFill)" stroke="#4e9bd6" stroke-opacity=".75" stroke-width="1.1"/>
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="none" stroke="#9aeaf9" stroke-width="1.1" opacity="0">
+        <animate attributeName="opacity" values="0;.85;0" dur="11s" begin="7.2s" repeatCount="indefinite"/></rect>
+      <g class="ico" transform="translate(-10.5,-9.5)"><rect x="0" y="0" width="7.8" height="6.7" rx="1.7"/><rect x="13.3" y="12.2" width="7.8" height="6.7" rx="1.7"/><path d="M3.9 6.7v5.8a3 3 0 0 0 3 3h6.4"/></g>
+    </g>
+    <text class="lbl" x="120" y="314">Workflows</text>
+  </g>
+
+  <g class="float f6">
+    <g transform="translate(460,282)">
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="url(#nodeFill)" stroke="#4e9bd6" stroke-opacity=".75" stroke-width="1.1"/>
+      <rect x="-23" y="-23" width="46" height="46" rx="11" fill="none" stroke="#9aeaf9" stroke-width="1.1" opacity="0">
+        <animate attributeName="opacity" values="0;.85;0" dur="11s" begin="9s" repeatCount="indefinite"/></rect>
+      <g class="ico" transform="translate(-11,-8.5)"><path d="M7.2 1.1 1.7 8.3l5.5 7.2M14.8 1.1l5.5 7.2-5.5 7.2"/></g>
+    </g>
+    <text class="lbl" x="460" y="314">APIs</text>
+  </g>
+
+  <g>
+    <circle cx="290" cy="196" r="78" fill="url(#hubGlow)">
+      <animate attributeName="r" values="73;86;73" dur="12s" repeatCount="indefinite"/></circle>
+    <circle cx="290" cy="196" r="34" fill="none" stroke="#b6f0fb" stroke-width="1.2">
+      <animate attributeName="r" values="33;73" dur="9s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.6;0" dur="9s" repeatCount="indefinite"/></circle>
+    <circle cx="290" cy="196" r="34" fill="none" stroke="#b6f0fb" stroke-width="1.2">
+      <animate attributeName="r" values="33;73" dur="9s" begin="4.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.6;0" dur="9s" begin="4.5s" repeatCount="indefinite"/></circle>
+    <g transform="translate(290,196)">
+      <circle r="58" fill="none" stroke="#8ec9ef" stroke-opacity=".55" stroke-width="0.9" stroke-dasharray="13 9">
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="64s" repeatCount="indefinite"/></circle>
+      <circle r="47" fill="none" stroke="#b3a6ff" stroke-opacity=".5" stroke-width="0.8" stroke-dasharray="2.2 7">
+        <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="46s" repeatCount="indefinite"/></circle>
+      <g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="24s" repeatCount="indefinite"/>
+        <circle cx="58" cy="0" r="2.8" fill="#a6f0fa"/><circle cx="-58" cy="0" r="2" fill="#b3a6ff"/></g>
+    </g>
+    <circle cx="290" cy="196" r="33" fill="#143a60" opacity="0.85" filter="url(#softer)"/>
+    <circle cx="290" cy="196" r="30" fill="url(#hubCore)"/>
+    <circle cx="290" cy="196" r="30" fill="none" stroke="#dbe5ff" stroke-opacity=".7" stroke-width="1.1"/>
+    <g fill="#f2f8ff" opacity="0.94">
+      <rect x="281" y="190" width="3.6" height="8" rx="1.6">
+        <animate attributeName="height" values="5;13;7;11;5" dur="4.2s" repeatCount="indefinite"/>
+        <animate attributeName="y" values="192;188;191;189;192" dur="4.2s" repeatCount="indefinite"/></rect>
+      <rect x="288" y="188" width="3.6" height="12" rx="1.6">
+        <animate attributeName="height" values="12;5;14;8;12" dur="4.2s" repeatCount="indefinite"/>
+        <animate attributeName="y" values="188;192;187;190;188" dur="4.2s" repeatCount="indefinite"/></rect>
+      <rect x="295" y="191" width="3.6" height="6" rx="1.6">
+        <animate attributeName="height" values="7;13;5;12;7" dur="4.2s" repeatCount="indefinite"/>
+        <animate attributeName="y" values="191;188;192;189;191" dur="4.2s" repeatCount="indefinite"/></rect>
+    </g>
+    <text class="hubtxt" x="290" y="215">AI AGENT</text>
+  </g>
+
+  <g>
+    <circle r="3" fill="#a6f0fa" filter="url(#soft)" opacity=".9"><animateMotion dur="10s" begin="0s" repeatCount="indefinite"><mpath xlink:href="#p1"/></animateMotion></circle>
+    <circle r="2.1" fill="#dcf7ff"><animateMotion dur="10s" begin="3.3s" repeatCount="indefinite"><mpath xlink:href="#p1"/></animateMotion></circle>
+    <use xlink:href="#pktShape" opacity=".95"><animateMotion dur="10s" begin="6.7s" rotate="auto" repeatCount="indefinite"><mpath xlink:href="#p1"/></animateMotion></use>
+
+    <circle r="3" fill="#a6f0fa" filter="url(#soft)" opacity=".9"><animateMotion dur="10s" begin="1.25s" repeatCount="indefinite"><mpath xlink:href="#p2"/></animateMotion></circle>
+    <circle r="2.1" fill="#dcf7ff"><animateMotion dur="10s" begin="4.6s" repeatCount="indefinite"><mpath xlink:href="#p2"/></animateMotion></circle>
+    <use xlink:href="#pktShape" opacity=".95"><animateMotion dur="10s" begin="7.9s" rotate="auto" repeatCount="indefinite"><mpath xlink:href="#p2"/></animateMotion></use>
+
+    <circle r="3" fill="#b3a6ff" filter="url(#soft)" opacity=".9"><animateMotion dur="10s" begin="2.5s" repeatCount="indefinite"><mpath xlink:href="#p3"/></animateMotion></circle>
+    <circle r="2.1" fill="#e3ddff"><animateMotion dur="10s" begin="5.8s" repeatCount="indefinite"><mpath xlink:href="#p3"/></animateMotion></circle>
+    <use xlink:href="#pktShape" opacity=".95"><animateMotion dur="10s" begin="9.2s" rotate="auto" repeatCount="indefinite"><mpath xlink:href="#p3"/></animateMotion></use>
+
+    <circle r="3" fill="#b3a6ff" filter="url(#soft)" opacity=".9"><animateMotion dur="10s" begin="3.75s" repeatCount="indefinite"><mpath xlink:href="#p4"/></animateMotion></circle>
+    <circle r="2.1" fill="#e3ddff"><animateMotion dur="10s" begin="7.1s" repeatCount="indefinite"><mpath xlink:href="#p4"/></animateMotion></circle>
+    <use xlink:href="#pktShape" opacity=".95"><animateMotion dur="10s" begin="0.4s" rotate="auto" repeatCount="indefinite"><mpath xlink:href="#p4"/></animateMotion></use>
+
+    <circle r="3" fill="#7fe3c6" filter="url(#soft)" opacity=".9"><animateMotion dur="10s" begin="5s" repeatCount="indefinite"><mpath xlink:href="#p5"/></animateMotion></circle>
+    <circle r="2.1" fill="#d2fff2"><animateMotion dur="10s" begin="8.3s" repeatCount="indefinite"><mpath xlink:href="#p5"/></animateMotion></circle>
+    <use xlink:href="#pktShape" opacity=".95"><animateMotion dur="10s" begin="1.7s" rotate="auto" repeatCount="indefinite"><mpath xlink:href="#p5"/></animateMotion></use>
+
+    <circle r="3" fill="#7fe3c6" filter="url(#soft)" opacity=".9"><animateMotion dur="10s" begin="6.25s" repeatCount="indefinite"><mpath xlink:href="#p6"/></animateMotion></circle>
+    <circle r="2.1" fill="#d2fff2"><animateMotion dur="10s" begin="9.6s" repeatCount="indefinite"><mpath xlink:href="#p6"/></animateMotion></circle>
+    <use xlink:href="#pktShape" opacity=".95"><animateMotion dur="10s" begin="2.9s" rotate="auto" repeatCount="indefinite"><mpath xlink:href="#p6"/></animateMotion></use>
+  </g>
+
+  <g fill="#a6f0fa" opacity="0.45">
+    <circle cx="190" cy="78" r="1.4"><animate attributeName="cy" values="78;64;78" dur="19s" repeatCount="indefinite"/></circle>
+    <circle cx="396" cy="84" r="1.2"><animate attributeName="cy" values="84;70;84" dur="22s" repeatCount="indefinite"/></circle>
+    <circle cx="290" cy="276" r="1.3"><animate attributeName="cy" values="276;262;276" dur="18s" repeatCount="indefinite"/></circle>
+    <circle cx="206" cy="250" r="1.2"><animate attributeName="cy" values="250;264;250" dur="24s" repeatCount="indefinite"/></circle>
+    <circle cx="378" cy="152" r="1.2"><animate attributeName="cy" values="152;138;152" dur="21s" repeatCount="indefinite"/></circle>
+    <circle cx="202" cy="154" r="1.3"><animate attributeName="cy" values="154;168;154" dur="22s" repeatCount="indefinite"/></circle>
+  </g>
+</svg>

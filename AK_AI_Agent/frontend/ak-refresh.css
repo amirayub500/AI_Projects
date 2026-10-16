@@ -1,0 +1,306 @@
+/* ============================================================
+   AK UI refresh  —  loaded AFTER style.css, overrides only.
+   Nothing in style.css was changed. To revert the whole
+   redesign, delete the <link> to this file in index.html.
+   ============================================================ */
+
+
+/* ---- 1. Demo banner: orange, waving slowly dark -> light ---- */
+
+.demo-banner {
+    background: linear-gradient(100deg,
+        #dd6a00 0%, #f79009 20%, #ffc247 50%, #f79009 80%, #dd6a00 100%);
+    background-size: 230% 100%;
+    animation: akWave 7s ease-in-out infinite;
+    color: #2a1704;
+    box-shadow: 0 2px 14px -6px rgba(221, 106, 0, 0.6);
+}
+
+@keyframes akWave {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+}
+
+.demo-badge {
+    background: #13182e;
+    color: #ffc247;
+}
+
+.demo-link {
+    color: #13182e;
+    text-decoration-color: rgba(19, 24, 46, 0.45);
+}
+
+
+/* ---- 2. Hero: animated SVG sits flatter on the page ---- */
+
+.hero-image {
+    border: 0;
+    border-radius: 16px;
+    box-shadow: 0 14px 30px -22px rgba(11, 21, 48, 0.42);
+}
+
+
+/* ---- 3. Research box: black ---- */
+
+#topic {
+    min-height: 120px;
+    background: #12161f;
+    color: #f4f1ea;
+    border: 2.5px solid #12161f;
+    border-radius: 14px;
+    caret-color: #ffc247;
+    box-shadow:
+        0 10px 28px -14px rgba(16, 22, 31, 0.75),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+#topic::placeholder {
+    color: #9aa3b2;
+}
+
+#topic:focus {
+    border-color: #f79009;
+    box-shadow:
+        0 0 0 4px rgba(247, 144, 9, 0.28),
+        0 12px 30px -14px rgba(16, 22, 31, 0.8);
+}
+
+
+/* ---- 4. Helper lines, and sample questions as blue tabs + chips ---- */
+
+.ak-helpers {
+    margin: 11px 0 0;
+}
+
+.ak-helpers p {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 12.9px;
+    line-height: 1.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ak-helpers p:last-child { margin-bottom: 0; }
+.ak-helpers i { font-style: normal; color: #8e97a3; }
+.ak-helpers b { color: var(--text); }
+
+.ak-tag {
+    display: inline-grid;
+    place-items: center;
+    min-width: 29px;
+    height: 21px;
+    padding: 0 8px;
+    margin-right: 8px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    vertical-align: -5px;
+}
+
+.ak-tag-web   { background: #e9effa; color: #44639c; }
+.ak-tag-slash { background: #3566c8; color: #ffffff; font-size: 13.5px; }
+
+/* the list is always open, so the toggle text is redundant */
+.samples > summary { display: none; }
+
+.samples[open] {
+    margin: 14px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+.ak-tabs {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin: 0 0 10px;
+}
+
+button.ak-tab {
+    padding: 7px 15px;
+    border: 1px solid transparent;
+    border-radius: 99px;
+    background: #e7eefb;
+    color: #2d5496;
+    font: inherit;
+    font-size: 12.6px;
+    font-weight: 600;
+    transition: all .22s ease;
+}
+
+button.ak-tab:hover {
+    background: #d8e4f8;
+    color: #23437c;
+    transform: none;
+    box-shadow: none;
+}
+
+button.ak-tab.is-on {
+    background: #3566c8;
+    color: #ffffff;
+    box-shadow: 0 5px 14px -7px rgba(53, 102, 200, 0.9);
+}
+
+.ak-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 8px;
+}
+
+.ak-group[hidden] { display: none; }
+
+button.sample-q {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 10px 13px;
+    border: 1px solid #d5e2f5;
+    border-radius: 11px;
+    background: #eef4fd;
+    color: #1f3a63;
+    font-size: 13.2px;
+    font-weight: 500;
+    text-align: left;
+    transition: transform .22s cubic-bezier(.2,.8,.3,1),
+                border-color .22s, box-shadow .22s, background .22s;
+}
+
+button.sample-q:hover {
+    transform: translateY(-2px);
+    background: #e2ecfb;
+    border-color: #3566c8;
+    box-shadow: 0 7px 16px -10px rgba(53, 102, 200, 0.65);
+}
+
+
+/* ---- 5. Testing-phase note (kept only while research runs) ---- */
+
+#progressSection .speed-note {
+    border-left-color: #f79009;
+    background: rgba(247, 144, 9, 0.09);
+}
+
+#progressSection .speed-note strong {
+    color: #b45309;
+}
+
+
+/* ---- 6. Process flow: animated road replaces the four tiles ---- */
+
+.capabilities.ak-flow-section {
+    display: block;
+    grid-template-columns: none;
+    gap: 0;
+    margin: 16px 0 28px;
+    padding: 0;
+    background: none;
+    border: 0;
+}
+
+.ak-flow {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+}
+
+.ak-st-n {
+    font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .11em;
+    fill: #3f7266;
+    text-anchor: middle;
+}
+
+.ak-st-t {
+    font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    fill: #0f2e27;
+    text-anchor: middle;
+}
+
+.ak-st-s {
+    font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+    font-size: 10.5px;
+    fill: #4e5f6b;
+    text-anchor: middle;
+}
+
+
+/* ---- 7. Tighter vertical rhythm so the page fits one screen.
+          Delete this block alone to get the old spacing back.  ---- */
+
+.app-shell { padding: 8px 0 30px; }
+
+.topbar { margin-bottom: 8px; }
+
+.brand-logo { height: 48px; }
+
+.demo-banner { padding: 10px 16px; font-size: 13px; }
+
+.hero { margin-bottom: 6px; gap: 32px; align-items: center;
+        grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+
+.hero h2 { margin: 6px 0 10px; font-size: clamp(34px, 4.2vw, 50px); max-width: 7.2em; }
+
+.hero-text { font-size: 14.6px; line-height: 1.6; margin: 0;
+             max-width: 52ch; text-wrap: balance; }
+
+.research-card { padding: 9px 18px; }
+
+.research-card label { margin-bottom: 7px; font-size: 13.5px; }
+
+#topic { min-height: 74px; padding: 13px 17px; font-size: 15.5px; }
+
+.ak-helpers { margin: 7px 0 0; }
+
+.ak-helpers p { margin: 0 0 4px; }
+
+/* the counter stays in the DOM for app.js, just not shown */
+#characterCount { display: none; }
+
+.input-footer { margin-top: 6px; justify-content: flex-end; }
+
+.input-footer button { padding: 11px 20px; }
+
+.samples[open] { margin: 8px 0 0; }
+
+.ak-tabs { margin: 0 0 8px; }
+
+button.ak-tab { padding: 6px 14px; font-size: 12.3px; }
+
+.ak-group { gap: 7px; }
+
+button.sample-q { padding: 6px 11px; font-size: 12.5px; }
+
+.capabilities.ak-flow-section { margin: 2px 0 0; }
+
+footer { margin-top: 22px; font-size: 11.5px; }
+
+
+/* ---- 8. Motion off for anyone who asks for it ---- */
+
+@media (prefers-reduced-motion: reduce) {
+    .demo-banner,
+    .ak-flow * {
+        animation: none !important;
+    }
+}
+
+
+@media (max-width: 760px) {
+
+    .ak-group { grid-template-columns: 1fr; }
+    .ak-helpers p { white-space: normal; }
+
+    .hero h2 { font-size: 34px; }
+}

@@ -24,6 +24,11 @@
         href="/static/style.css?v={{APP_VERSION}}"
     >
 
+    <link
+        rel="stylesheet"
+        href="/static/ak-refresh.css?v={{APP_VERSION}}"
+    >
+
 </head>
 
 <body>
@@ -115,8 +120,8 @@
 
               <img
                   class="hero-image"
-                  src="/static/hero.webp"
-                  alt="AI agent connecting documents, spreadsheets, databases, workflows and the web"
+                  src="/static/ak_hero_dataflow.svg"
+                  alt="Animated diagram: documents, databases, spreadsheets, web, workflows and APIs flowing into a central AI agent"
               >
 
             </section>
@@ -130,38 +135,16 @@
                     Research topic
                 </label>
 
-                <p class="mode-hint">
-                    Start with <strong>/</strong> to search your organization's own documents and data instead of the web.
-                </p>
-
-                <details class="samples">
-
-                    <summary>Not sure what to ask? <span>See sample questions</span></summary>
-
-                    <p class="sample-tip">Click a question to put it in the box, then press Start Research.</p>
-
-                    <p class="sample-group">Your data (starts with /)</p>
-                    <button type="button" class="sample-q" data-q="/ What is our donor churn rate by year?">/ What is our donor churn rate by year?</button>
-                    <button type="button" class="sample-q" data-q="/ Which donors have lapsed and how much did they give in total?">/ Which donors have lapsed and how much did they give in total?</button>
-                    <button type="button" class="sample-q" data-q="/ Who are our top 5 donors across all years and are they still active?">/ Who are our top 5 donors across all years and are they still active?</button>
-                    <button type="button" class="sample-q" data-q="/ Which companies stopped giving?">/ Which companies stopped giving?</button>
-                    <button type="button" class="sample-q" data-q="/ What did the board decide about lapsed donors?">/ What did the board decide about lapsed donors?</button>
-                    <button type="button" class="sample-q" data-q="/ What is our policy for pledges over $10,000?">/ What is our policy for pledges over $10,000?</button>
-                    <p class="sample-group">Charts from your data</p>
-                    <button type="button" class="sample-q" data-q="/ Chart our donor churn rate by year">/ Chart our donor churn rate by year</button>
-                    <button type="button" class="sample-q" data-q="/ Show a bar graph of total pledges per year">/ Show a bar graph of total pledges per year</button>
-                    <button type="button" class="sample-q" data-q="/ Graph the top 10 donors by total giving">/ Graph the top 10 donors by total giving</button>
-                    <button type="button" class="sample-q" data-q="/ Pie chart of individual vs company pledges in 2025">/ Pie chart of individual vs company pledges in 2025</button>
-                    <p class="sample-group">The web (no /)</p>
-                    <button type="button" class="sample-q" data-q="Best practices for improving nonprofit donor retention">Best practices for improving nonprofit donor retention</button>
-                    <button type="button" class="sample-q" data-q="Benefits of solar energy for homes">Benefits of solar energy for homes</button>
-
-                </details>
-
                 <textarea
                     id="topic"
-                    placeholder="Web research: Impact of Generative AI on Software Development&#10;Your organization's data: start with /  e.g.  / Total pledges by donor in 2026"
+                    placeholder="Ask anything — or start with / to search your organization's data"
                 ></textarea>
+
+
+                <div class="ak-helpers">
+                    <p><span class="ak-tag ak-tag-web">WEB</span> Type a topic to research the web — <i>Impact of generative AI on software</i></p>
+                    <p><span class="ak-tag ak-tag-slash">/</span> Start with <b>/</b> for your organization's own data — <i>/ Total pledges by donor in 2026</i></p>
+                </div>
 
 
                 <div class="input-footer">
@@ -184,98 +167,139 @@
 
                 </div>
 
-                <p class="speed-note">
-                    <span class="speed-icon">⏱</span>
-                    <span><strong>Testing phase:</strong> this demo runs on a small test server, so results can take a few minutes. On the live system, results come back in seconds.</span>
-                </p>
+
+                <details class="samples" open>
+
+                    <summary>Not sure what to ask? <span>See sample questions</span></summary>
+
+                    <div class="ak-tabs" role="tablist">
+                        <button type="button" class="ak-tab is-on" data-group="akG1">Donors & pledges</button>
+                        <button type="button" class="ak-tab" data-group="akG2">Charts & trends</button>
+                        <button type="button" class="ak-tab" data-group="akG3">Policies & decisions</button>
+                        <button type="button" class="ak-tab" data-group="akG4">Web research</button>
+                    </div>
+
+                    <div class="ak-group" id="akG1">
+                        <button type="button" class="sample-q" data-q="/ What is our donor churn rate by year?">/ What is our donor churn rate by year?</button>
+                        <button type="button" class="sample-q" data-q="/ Which donors have lapsed and how much did they give in total?">/ Which donors have lapsed and how much did they give in total?</button>
+                        <button type="button" class="sample-q" data-q="/ Who are our top 5 donors across all years and are they still active?">/ Who are our top 5 donors across all years and are they still active?</button>
+                        <button type="button" class="sample-q" data-q="/ Which companies stopped giving?">/ Which companies stopped giving?</button>
+                    </div>
+                    <div class="ak-group" id="akG2" hidden>
+                        <button type="button" class="sample-q" data-q="/ Chart our donor churn rate by year">/ Chart our donor churn rate by year</button>
+                        <button type="button" class="sample-q" data-q="/ Show a bar graph of total pledges per year">/ Show a bar graph of total pledges per year</button>
+                        <button type="button" class="sample-q" data-q="/ Graph the top 10 donors by total giving">/ Graph the top 10 donors by total giving</button>
+                        <button type="button" class="sample-q" data-q="/ Pie chart of individual vs company pledges in 2025">/ Pie chart of individual vs company pledges in 2025</button>
+                    </div>
+                    <div class="ak-group" id="akG3" hidden>
+                        <button type="button" class="sample-q" data-q="/ What did the board decide about lapsed donors?">/ What did the board decide about lapsed donors?</button>
+                        <button type="button" class="sample-q" data-q="/ What is our policy for pledges over $10,000?">/ What is our policy for pledges over $10,000?</button>
+                    </div>
+                    <div class="ak-group" id="akG4" hidden>
+                        <button type="button" class="sample-q" data-q="Best practices for improving nonprofit donor retention">Best practices for improving nonprofit donor retention</button>
+                        <button type="button" class="sample-q" data-q="Benefits of solar energy for homes">Benefits of solar energy for homes</button>
+                    </div>
+
+                </details>
 
             </section>
 
 
             <!-- Capabilities -->
 
-            <section class="capabilities" aria-label="How the research works: planning, research, verification, synthesis">
-
-                <div class="capability">
-
-                    <span class="capability-icon">
-                        ◇
-                    </span>
-
-                    <div>
-                        <strong>
-                            Planning
-                        </strong>
-
-                        <small>
-                            Structured research
-                        </small>
-                    </div>
-
-                </div>
-
-
-                <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-
-                <div class="capability">
-
-                    <span class="capability-icon">
-                        ◌
-                    </span>
-
-                    <div>
-                        <strong>
-                            Research
-                        </strong>
-
-                        <small>
-                            Information gathering
-                        </small>
-                    </div>
-
-                </div>
-
-
-                <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-
-                <div class="capability">
-
-                    <span class="capability-icon">
-                        ✓
-                    </span>
-
-                    <div>
-                        <strong>
-                            Verification
-                        </strong>
-
-                        <small>
-                            Evidence checking
-                        </small>
-                    </div>
-
-                </div>
-
-
-                <span class="flow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-
-                <div class="capability">
-
-                    <span class="capability-icon">
-                        ▤
-                    </span>
-
-                    <div>
-                        <strong>
-                            Synthesis
-                        </strong>
-
-                        <small>
-                            Final report
-                        </small>
-                    </div>
-
-                </div>
+            <section class="capabilities ak-flow-section" aria-label="How the research works: planning, research, verification, synthesis">
+                <svg class="ak-flow" viewBox="0 0 1100 104" role="img" aria-label="Planning, then Research, then Verification, then Synthesis">
+                    <defs>
+                        <path id="akRoad" d="M 60,36 H 1040"/>
+                        <linearGradient id="akRoadLit" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#8fe0c9"/><stop offset="100%" stop-color="#4fc3a6"/>
+                        </linearGradient>
+                        <filter id="akDotG" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="4"/></filter>
+                    </defs>
+                    <use href="#akRoad" fill="none" stroke="#369379" stroke-width="14" stroke-linecap="round"/>
+                    <use href="#akRoad" fill="none" stroke="url(#akRoadLit)" stroke-width="14" stroke-linecap="round"
+                         pathLength="100" stroke-dasharray="100" opacity=".9">
+                        <animate attributeName="stroke-dashoffset" values="100;0;0" keyTimes="0;.88;1" dur="14s" repeatCount="indefinite"/>
+                    </use>
+                    <use href="#akRoad" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"
+                         stroke-opacity=".3" stroke-dasharray="7 12">
+                        <animate attributeName="stroke-dashoffset" values="0;-38" dur="3.2s" repeatCount="indefinite"/>
+                    </use>
+                    <circle r="6" fill="#d6fff2" filter="url(#akDotG)" opacity=".95">
+                        <animateMotion dur="14s" repeatCount="indefinite"><mpath href="#akRoad"/></animateMotion>
+                    </circle>
+                    <circle r="3" fill="#ffffff">
+                        <animateMotion dur="14s" repeatCount="indefinite"><mpath href="#akRoad"/></animateMotion>
+                    </circle>
+                    <g transform="translate(150,36)">
+                        <circle r="25" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;.35;.35;0" keyTimes="0;.03;.13;.19" dur="14s" begin="1.3s" repeatCount="indefinite"/>
+                            <animate attributeName="r" values="20;29;29;20" keyTimes="0;.03;.13;.19" dur="14s" begin="1.3s" repeatCount="indefinite"/>
+                        </circle>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#fffaf2" stroke="#369379" stroke-width="2.3"/>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.03;.13;.19" dur="14s" begin="1.3s" repeatCount="indefinite"/>
+                        </rect>
+                        <g fill="none" stroke="#369379" stroke-width="2.1" stroke-linejoin="round">
+                            <path d="M0,-9 L8,0 L0,9 L-8,0 Z"/>
+                            <animate attributeName="stroke" values="#369379;#ffffff;#ffffff;#369379" keyTimes="0;.03;.13;.19" dur="14s" begin="1.3s" repeatCount="indefinite"/>
+                        </g>
+                    </g>
+                    <text class="ak-st-n" x="150" y="70">STEP 01</text>
+                    <text class="ak-st-t" x="150" y="87">Planning</text>
+                    <text class="ak-st-s" x="150" y="101">Structured research</text>
+                    <g transform="translate(417,36)">
+                        <circle r="25" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;.35;.35;0" keyTimes="0;.03;.13;.19" dur="14s" begin="5.1s" repeatCount="indefinite"/>
+                            <animate attributeName="r" values="20;29;29;20" keyTimes="0;.03;.13;.19" dur="14s" begin="5.1s" repeatCount="indefinite"/>
+                        </circle>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#fffaf2" stroke="#369379" stroke-width="2.3"/>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.03;.13;.19" dur="14s" begin="5.1s" repeatCount="indefinite"/>
+                        </rect>
+                        <g fill="none" stroke="#369379" stroke-width="2.1" stroke-linecap="round">
+                            <path d="M0,-9 A9,9 0 0 1 9,0"/><path d="M0,9 A9,9 0 0 1 -9,0" opacity=".55"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="5s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke" values="#369379;#ffffff;#ffffff;#369379" keyTimes="0;.03;.13;.19" dur="14s" begin="5.1s" repeatCount="indefinite"/>
+                        </g>
+                    </g>
+                    <text class="ak-st-n" x="417" y="70">STEP 02</text>
+                    <text class="ak-st-t" x="417" y="87">Research</text>
+                    <text class="ak-st-s" x="417" y="101">Information gathering</text>
+                    <g transform="translate(683,36)">
+                        <circle r="25" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;.35;.35;0" keyTimes="0;.03;.13;.19" dur="14s" begin="8.9s" repeatCount="indefinite"/>
+                            <animate attributeName="r" values="20;29;29;20" keyTimes="0;.03;.13;.19" dur="14s" begin="8.9s" repeatCount="indefinite"/>
+                        </circle>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#fffaf2" stroke="#369379" stroke-width="2.3"/>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.03;.13;.19" dur="14s" begin="8.9s" repeatCount="indefinite"/>
+                        </rect>
+                        <g fill="none" stroke="#369379" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M-8,0 L-2,6.5 L8,-6.5"/>
+                            <animate attributeName="stroke" values="#369379;#ffffff;#ffffff;#369379" keyTimes="0;.03;.13;.19" dur="14s" begin="8.9s" repeatCount="indefinite"/>
+                        </g>
+                    </g>
+                    <text class="ak-st-n" x="683" y="70">STEP 03</text>
+                    <text class="ak-st-t" x="683" y="87">Verification</text>
+                    <text class="ak-st-s" x="683" y="101">Evidence checking</text>
+                    <g transform="translate(950,36)">
+                        <circle r="25" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;.35;.35;0" keyTimes="0;.03;.13;.19" dur="14s" begin="12.7s" repeatCount="indefinite"/>
+                            <animate attributeName="r" values="20;29;29;20" keyTimes="0;.03;.13;.19" dur="14s" begin="12.7s" repeatCount="indefinite"/>
+                        </circle>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#fffaf2" stroke="#369379" stroke-width="2.3"/>
+                        <rect x="-19" y="-19" width="38" height="38" rx="11" fill="#369379" opacity="0">
+                            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.03;.13;.19" dur="14s" begin="12.7s" repeatCount="indefinite"/>
+                        </rect>
+                        <g fill="none" stroke="#369379" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="-7.5" y="-9" width="15" height="18" rx="2.8"/><path d="M-3.5,-3.5h7M-3.5,0.5h7M-3.5,4.5h4.5"/>
+                            <animate attributeName="stroke" values="#369379;#ffffff;#ffffff;#369379" keyTimes="0;.03;.13;.19" dur="14s" begin="12.7s" repeatCount="indefinite"/>
+                        </g>
+                    </g>
+                    <text class="ak-st-n" x="950" y="70">STEP 04</text>
+                    <text class="ak-st-t" x="950" y="87">Synthesis</text>
+                    <text class="ak-st-s" x="950" y="101">Final report</text>
+                </svg>
 
             </section>
 
@@ -430,6 +454,7 @@
     <!-- Chart.js 4.4.1 (MIT), served from this site -->
     <script src="/static/chart.umd.js?v=4.4.1"></script>
     <script src="/static/app.js?v={{APP_VERSION}}"></script>
+    <script src="/static/ak-refresh.js?v={{APP_VERSION}}"></script>
 
 </body>
 </html>
