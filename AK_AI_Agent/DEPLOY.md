@@ -172,3 +172,25 @@ docker compose exec app python ingest.py --status
 Then ask in the web page with `/` in front, e.g. `/ Who pledged the most in 2026?`
 
 Re-running the import only adds new files. To start over: `rm data/company.db` and import again.
+
+
+## Switch to a hosted model (much faster)
+
+A small model on 2 CPUs takes minutes per research run. A hosted API takes seconds.
+
+1. Get an API key (Anthropic: console.anthropic.com, or OpenAI).
+2. On the server, edit `.env` (`nano .env`) and set:
+   ```
+   LLM_PROVIDER=anthropic
+   ANTHROPIC_API_KEY=your-key-here
+   MODEL=
+   ```
+3. Restart without the local model:
+   ```bash
+   git pull
+   docker compose --profile local-llm down
+   docker compose up -d --build
+   ```
+4. Check: `docker compose logs -f app`, then run a research question in the browser.
+
+To go back to the local model: set `LLM_PROVIDER=ollama` and run `docker compose --profile local-llm up -d --build`.

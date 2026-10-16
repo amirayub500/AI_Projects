@@ -2,7 +2,7 @@
 
 A local research assistant: type a topic, and the agent **plans**, **searches the web**, **saves findings with evidence**, **verifies** each one, and writes a **7-section report** from verified findings only. Progress streams live to the browser.
 
-Everything runs on your own machine with [Ollama](https://ollama.com) and the `qwen3:1.7b` model. No API keys, no cloud AI services.
+The model is set with `LLM_PROVIDER`: a hosted API (`anthropic` or `openai`, fast) or a local [Ollama](https://ollama.com) model (`ollama`, default `qwen3:1.7b`, no API key but slow on CPU).
 
 Final project (Day 21) of a 21-day AI agent course.
 
@@ -41,7 +41,7 @@ The agent loop is written by hand with `ollama.chat(tools=...)` rather than a fr
 | `main.py` | FastAPI server: `/` (web UI), `/research` (streaming, used by the UI), `/chat` (JSON), `/health` |
 | `agent.py` | Plan, research loop, report writing; `MAX_STEPS` and run time limit |
 | `tools.py` | Tools the model can call (`search_web`, `read_webpage`, `add_research_note`, `get_research_notes`, `verify_finding`) and the per-request `ResearchSession` |
-| `llm.py` | Ollama connection: `MODEL` and call timeout, used by both files above |
+| `llm.py` | Model connection (Anthropic, OpenAI or Ollama): `LLM_PROVIDER`, `MODEL`, call timeout. Used by both files above |
 | `company_db.py` | The client's database (SQLite): document text search, spreadsheet tables, read-only queries |
 | `ingest.py` | Converts client files (PDF incl. scans, Word, text, Excel, CSV) to text and loads them into the database |
 | `schemas.py` | Pydantic request/response models for `/chat` |
@@ -143,7 +143,8 @@ Set as environment variables (in `.env` when using Docker). Defaults suit local 
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| `MODEL` | `qwen3:1.7b` | Larger models are more accurate but slower on CPU. |
+| `LLM_PROVIDER` | `ollama` | `anthropic`, `openai` or `ollama`. API providers need `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. |
+| `MODEL` | provider default | `claude-haiku-5-5`, `gpt-4o-mini` or `qwen3:1.7b` when empty. |
 | `MAX_STEPS` | `5` | Agent loop steps. Raise if runs end with "No verified findings". |
 | `LLM_TIMEOUT` | `300` | Seconds one model call may take. |
 | `RESEARCH_TIMEOUT` | `900` | Seconds one whole research run may take. |

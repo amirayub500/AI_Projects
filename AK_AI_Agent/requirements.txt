@@ -1,6 +1,8 @@
 fastapi
 uvicorn
 ollama
+anthropic
+openai
 requests
 beautifulsoup4
 pydantic

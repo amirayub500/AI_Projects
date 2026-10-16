@@ -24,6 +24,9 @@ History
            newest page; note when a chart is asked without "/"
     1.6.0  Download as Excel for "/" answers (data behind charts and queries)
     1.7.0  Download as PDF for every answer (print layout with charts)
+    1.8.0  UI refresh: animated hero, process flow, tabbed sample questions
+    1.9.0  Hosted model option (LLM_PROVIDER=anthropic|openai) - runs take
+           seconds instead of minutes; Ollama is now optional
 """
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.9.0"

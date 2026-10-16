@@ -1,6 +1,12 @@
-# Research AI Agent on one server: Ollama + the web app.
+# Research AI Agent on one server: the web app (+ optional local Ollama).
 #
-#   docker compose up -d --build     start (first run downloads the model)
+# The model comes from LLM_PROVIDER in .env:
+#   anthropic / openai  -> hosted API, fast. Only the app container runs:
+#       docker compose up -d --build
+#   ollama              -> local model on this server's CPU (slow). Start it too:
+#       docker compose --profile local-llm up -d --build
+#
+#   docker compose up -d --build     start
 #   docker compose logs -f app       watch the app
 #   docker compose down              stop
 #   docker compose exec app python ingest.py data/inbox    import client files
@@ -12,6 +18,7 @@ services:
   # The local LLM server. Models are kept in a volume so they survive restarts.
   ollama:
     image: ollama/ollama
+    profiles: ["local-llm"]
     volumes:
       - ollama-models:/root/.ollama
     restart: unless-stopped
@@ -25,24 +32,26 @@ services:
   # (Quick on later starts because the model is already there.)
   model-pull:
     image: ollama/ollama
+    profiles: ["local-llm"]
     depends_on:
       ollama:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "${MODEL:-qwen3:1.7b}"]
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen3:1.7b}"]
     restart: "no"
 
-  # The FastAPI app + web UI. Starts after the model is ready.
+  # The FastAPI app + web UI.
   app:
     build: .
-    depends_on:
-      model-pull:
-        condition: service_completed_successfully
     environment:
-      # Inside Docker, "ollama" is the other container's name
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      MODEL: ${MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      # Only used when LLM_PROVIDER=ollama ("ollama" is the other container's name)
       OLLAMA_HOST: http://ollama:11434
-      MODEL: ${MODEL:-qwen3:1.7b}
       MAX_STEPS: ${MAX_STEPS:-5}
       LLM_TIMEOUT: ${LLM_TIMEOUT:-300}
       RESEARCH_TIMEOUT: ${RESEARCH_TIMEOUT:-900}
