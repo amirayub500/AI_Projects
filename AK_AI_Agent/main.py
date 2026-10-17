@@ -47,11 +47,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from agent import run_agent, research_agent, generate_report, wants_chart, MAX_STEPS
 import company_db
+import visits
 from export_excel import build_workbook, MAX_ROWS as EXPORT_MAX_ROWS
 from version import APP_VERSION
 from schemas import ChatRequest, ChatResponse
@@ -201,6 +202,7 @@ async def lifespan(app: FastAPI):
     # Code before "yield" runs once at startup, after "yield" once at shutdown.
     print("Starting Research AI application")
     print(f"Password protection: {'on' if APP_PASSWORD else 'off'}")
+    print(f"Visitor log page (/admin/visits): {'on' if visits.ADMIN_PASSWORD else 'off - set ADMIN_PASSWORD'}")
     yield
     print("Shutting down Research AI application")
 
@@ -237,7 +239,8 @@ async def password_check(request: Request, call_next):
     NOTE: over plain http:// the password is not encrypted - add HTTPS for real use.
     """
 
-    if APP_PASSWORD and request.url.path != "/health":
+    # /admin pages check their own password (ADMIN_PASSWORD) in the route
+    if APP_PASSWORD and request.url.path != "/health" and not request.url.path.startswith("/admin"):
 
         ok = False
         header = request.headers.get("authorization", "")
@@ -251,6 +254,9 @@ async def password_check(request: Request, call_next):
                 ok = False
 
         if not ok:
+            # Someone typed a wrong password (not just the first, empty request)
+            if header:
+                visits.log_event(request, "login_failed", path=request.url.path)
             return Response(
                 status_code=401,
                 headers={"WWW-Authenticate": 'Basic realm="Research AI"'},
@@ -269,7 +275,8 @@ app.mount(
 
 
 @app.get("/")
-async def home():
+async def home(request: Request):
+    visits.log_event(request, "visit")
     # Put the app version into the page (see version.py)
     with open("frontend/index.html", encoding="utf-8") as f:
         page = f.read().replace("{{APP_VERSION}}", APP_VERSION)
@@ -299,6 +306,37 @@ async def export_excel(request: Request):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
+
+
+def _admin_login():
+    return Response(
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="Research AI admin"'},
+        content="Admin password required.",
+    )
+
+
+@app.get("/admin/visits")
+async def admin_visits(request: Request):
+    """Visitor log: who opened the site and what they asked (visits.py)."""
+    if not visits.ADMIN_PASSWORD:
+        raise HTTPException(status_code=404, detail="Set ADMIN_PASSWORD to turn on this page.")
+    if not visits.is_admin(request):
+        return _admin_login()
+    page = await run_in_threadpool(visits.admin_page)
+    return HTMLResponse(page, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/admin/visits.csv")
+async def admin_visits_csv(request: Request):
+    if not visits.ADMIN_PASSWORD:
+        raise HTTPException(status_code=404, detail="Set ADMIN_PASSWORD to turn on this page.")
+    if not visits.is_admin(request):
+        return _admin_login()
+    data = await run_in_threadpool(visits.admin_csv)
+    name = "visitor_log_" + time.strftime("%Y%m%d") + ".csv"
+    return Response(data, media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.get("/health")
@@ -404,6 +442,12 @@ async def research(topic: str, request: Request):
         # Format one dict as a Server-Sent Event line
         return "data: " + json.dumps(event) + "\n\n"
 
+    started = time.time()
+
+    def log_question(outcome):
+        visits.log_event(request, "question", mode=mode, question=topic[:500],
+                         outcome=outcome, seconds=round(time.time() - started))
+
     def finish(text, charts=None, tables=None):
         # "charts" is a list of chart dicts (see tools.create_chart); the page draws them.
         # "tables" is the data behind the answer, for the Download as Excel button.
@@ -418,14 +462,17 @@ async def research(topic: str, request: Request):
             return
 
         if mode == "company" and not company_db.has_data():
+            log_question("refused: no company data")
             yield finish(NO_COMPANY_DATA)
             return
 
         if len(topic) > MAX_TOPIC_CHARS:
+            log_question("refused: too long")
             yield finish(f"Please keep the topic under {MAX_TOPIC_CHARS} characters.")
             return
 
         if research_lock.locked():
+            log_question("refused: busy")
             yield finish(
                 "Another research is running right now. "
                 "Please try again in a few minutes."
@@ -433,6 +480,7 @@ async def research(topic: str, request: Request):
             return
 
         if rate_limited(ip):
+            log_question("refused: hourly limit")
             yield finish(
                 f"You have reached the limit of {RATE_LIMIT_PER_HOUR} "
                 "research runs per hour. Please try again later."
@@ -474,10 +522,12 @@ async def research(topic: str, request: Request):
         try:
             # Re-raises any exception from the job thread (e.g. Ollama not running)
             result, charts, tables = await task
+            log_question("answered")
 
         except Exception as exc:
             # Show the problem in the UI instead of silently cutting the stream
             result = f"Error during research: {exc}"
+            log_question(f"error: {str(exc)[:120]}")
 
         # Final event: the frontend shows "report" as the result, charts above it
         yield finish(result, charts, tables)

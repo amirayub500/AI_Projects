@@ -27,6 +27,8 @@ History
     1.8.0  UI refresh: animated hero, process flow, tabbed sample questions
     1.9.0  Hosted model option (LLM_PROVIDER=anthropic|openai) - runs take
            seconds instead of minutes; Ollama is now optional
+    1.10.0 Visitor log: who opened the site, the name typed at login, every
+           question and its result, at /admin/visits (ADMIN_PASSWORD)
 """
 
-APP_VERSION = "1.9.0"
+APP_VERSION = "1.10.0"

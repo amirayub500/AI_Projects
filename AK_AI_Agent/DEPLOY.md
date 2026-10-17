@@ -194,3 +194,15 @@ A small model on 2 CPUs takes minutes per research run. A hosted API takes secon
 4. Check: `docker compose logs -f app`, then run a research question in the browser.
 
 To go back to the local model: set `LLM_PROVIDER=ollama` and run `docker compose --profile local-llm up -d --build`.
+
+## Visitor log (who used the demo)
+
+Every visit, wrong password and research question is saved to `data/visits.jsonl`
+(survives rebuilds; never goes to GitHub). To view it:
+
+1. On the server, add a line to `.env`: `ADMIN_PASSWORD=pick-a-different-password`
+2. `sudo docker compose up -d --build`
+3. Open `http://SERVER-IP/admin/visits` and log in with any user name + that password.
+
+Tip: ask people you share the demo with to type their name and organization as
+the user name; it shows up in the log next to their questions.

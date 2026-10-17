@@ -3,6 +3,8 @@ uvicorn
 ollama
 anthropic
 openai
+# Time zones for the visitor log page
+tzdata
 requests
 beautifulsoup4
 pydantic
