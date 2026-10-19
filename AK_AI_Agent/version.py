@@ -33,6 +33,7 @@ History
            personal links (?ref=sarah) show in the visitor log; real visitor
            IP behind Cloudflare (was 172.18.0.1, which also made everyone
            share one hourly limit); demo policy updated
+    1.11.1 Welcome box: name required (Skip removed)
 """
 
-APP_VERSION = "1.11.0"
+APP_VERSION = "1.11.1"
