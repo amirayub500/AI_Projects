@@ -15,10 +15,12 @@ You read it at  /admin/visits  (a table, newest first) or download it as
 import base64
 import csv
 import io
+import ipaddress
 import json
 import os
 import threading
 from datetime import datetime, timezone
+from urllib.parse import unquote
 
 try:
     from zoneinfo import ZoneInfo
@@ -47,24 +49,59 @@ def basic_auth_user(request):
 
 
 def client_ip(request):
-    return request.client.host if request.client else "unknown"
+    """
+    The visitor's real IP address.
+
+    The site sits behind Cloudflare, so the app itself only sees Cloudflare's
+    hop (an internal Docker address such as 172.18.0.1). Cloudflare puts the
+    visitor's address in the CF-Connecting-IP header. We trust that header ONLY
+    when the request came from an internal address - someone hitting the server
+    directly from the internet can't fake it.
+    """
+    peer = request.client.host if request.client else ""
+    try:
+        internal = ipaddress.ip_address(peer).is_private
+    except ValueError:
+        internal = False
+    if internal:
+        for header in ("cf-connecting-ip", "x-forwarded-for", "x-real-ip"):
+            value = request.headers.get(header, "")
+            if value:
+                return value.split(",")[0].strip()[:64]
+    return peer or "unknown"
+
+
+def _cookie(request, name, limit=80):
+    """A value the welcome box (frontend/visitor-hello.js) saved in a cookie."""
+    try:
+        return unquote(request.cookies.get(name, "")).strip()[:limit]
+    except Exception:
+        return ""
 
 
 def log_event(request, kind, **fields):
     """
-    Append one event. kind = visit | login_failed | question.
+    Append one event. kind = visit | login_failed | question | intro | intro_skipped.
     Never raises: logging must not break the app.
+
+    name / org  - what the visitor typed in the welcome box (saved in a cookie)
+    ref         - the tag from a personal link, e.g. ?ref=sarah
     """
     try:
         user, _ = basic_auth_user(request)
+        ref = (request.query_params.get("ref", "") or _cookie(request, "ak_ref")).strip()[:60]
         record = {
             "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "kind": kind,
             "ip": client_ip(request),
             "user": user,
+            "name": _cookie(request, "ak_name"),
+            "org": _cookie(request, "ak_org", 120),
+            "ref": ref,
             "browser": request.headers.get("user-agent", "")[:200],
-            **fields,
         }
+        # Values passed in (e.g. the name sent with the welcome box) win
+        record.update({k: v for k, v in fields.items() if v not in (None, "")})
         os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
         with _lock, open(LOG_PATH, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -127,10 +164,12 @@ def admin_page():
     events = read_events()
     questions = [e for e in events if e.get("kind") == "question"]
     visits = [e for e in events if e.get("kind") == "visit"]
-    people = {e.get("user") or e.get("ip") for e in visits + questions}
+    people = {e.get("name") or e.get("user") or e.get("ip") for e in visits + questions}
+    named = {e.get("name") for e in events if e.get("name")}
     failed = [e for e in events if e.get("kind") == "login_failed"]
 
-    labels = {"visit": "Opened site", "question": "Asked", "login_failed": "Wrong password"}
+    labels = {"visit": "Opened site", "question": "Asked", "login_failed": "Wrong password",
+              "intro": "Said hello", "intro_skipped": "Skipped welcome box"}
 
     rows = []
     for e in events[:500]:
@@ -143,9 +182,16 @@ def admin_page():
             detail = (f"<div class='q'>{_esc(e.get('question', ''))}</div>"
                       f"<div class='m'>{mode} · {_esc(e.get('outcome', ''))}{extra}</div>")
         ip = _esc(e.get("ip", ""))
+        who = f"<b>{_esc(e.get('name') or e.get('user') or '—')}</b>"
+        if e.get("org"):
+            who += f"<div class='m'>{_esc(e['org'])}</div>"
+        if e.get("name") and e.get("user"):
+            who += f"<div class='m'>login: {_esc(e['user'])}</div>"
+        if e.get("ref"):
+            who += f"<div><span class='r'>link: {_esc(e['ref'])}</span></div>"
         rows.append(
             f"<tr class='{kind}'><td class='t'>{_local(e.get('time', ''))}</td>"
-            f"<td><b>{_esc(e.get('user') or '—')}</b></td>"
+            f"<td>{who}</td>"
             f"<td><span class='k'>{labels.get(kind, kind)}</span>{detail}</td>"
             f"<td class='m'><a href='https://ipinfo.io/{ip}' target='_blank' rel='noopener'>{ip}</a>"
             f"<br>{_esc(_browser(e.get('browser', '')))}</td></tr>"
@@ -167,18 +213,20 @@ th,td{{text-align:left;padding:10px 12px;border-bottom:1px solid #eef0f2;vertica
 th{{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.03em}}
 .t{{white-space:nowrap;color:#374151}} .m{{color:#6b7280;font-size:12px}}
 .q{{margin-top:4px}} .k{{font-size:12px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3730a3}}
-tr.question .k{{background:#ecfdf5;color:#065f46}} tr.login_failed .k{{background:#fef2f2;color:#991b1b}}
+tr.question .k{{background:#ecfdf5;color:#065f46}} tr.intro .k{{background:#fff7ed;color:#9a3412}}
+.r{{display:inline-block;margin-top:3px;font-size:11px;padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#374151}} tr.login_failed .k{{background:#fef2f2;color:#991b1b}}
 a{{color:#2563eb}}
 </style></head><body>
 <h1>Visitor log</h1>
 <div class="sub">Newest first · times in {LOG_TIMEZONE} · <a href="/admin/visits.csv">Download CSV</a></div>
 <div class="cards">
  <div class="card"><b>{len(people)}</b><span>people / devices</span></div>
+ <div class="card"><b>{len(named)}</b><span>gave their name</span></div>
  <div class="card"><b>{len(visits)}</b><span>site visits</span></div>
  <div class="card"><b>{len(questions)}</b><span>questions asked</span></div>
  <div class="card"><b>{len(failed)}</b><span>wrong passwords</span></div>
 </div>
-<table><tr><th>When</th><th>Name typed at login</th><th>What they did</th><th>IP / device</th></tr>
+<table><tr><th>When</th><th>Who</th><th>What they did</th><th>IP / device</th></tr>
 {body}
 </table>
 <p class="m">Click an IP to see its city and network (e.g. a company or university).</p>
@@ -187,7 +235,8 @@ a{{color:#2563eb}}
 
 def admin_csv():
     out = io.StringIO()
-    cols = ["time", "kind", "user", "ip", "mode", "question", "outcome", "seconds", "browser"]
+    cols = ["time", "kind", "name", "org", "ref", "user", "ip", "mode", "question",
+            "outcome", "seconds", "browser"]
     writer = csv.DictWriter(out, fieldnames=cols, extrasaction="ignore")
     writer.writeheader()
     for e in read_events(limit=100000):

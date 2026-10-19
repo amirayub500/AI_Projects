@@ -29,6 +29,10 @@ History
            seconds instead of minutes; Ollama is now optional
     1.10.0 Visitor log: who opened the site, the name typed at login, every
            question and its result, at /admin/visits (ADMIN_PASSWORD)
+    1.11.0 Optional welcome box asks the visitor's name and organization;
+           personal links (?ref=sarah) show in the visitor log; real visitor
+           IP behind Cloudflare (was 172.18.0.1, which also made everyone
+           share one hourly limit); demo policy updated
 """
 
-APP_VERSION = "1.10.0"
+APP_VERSION = "1.11.0"

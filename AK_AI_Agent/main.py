@@ -102,7 +102,9 @@ def rate_limited(ip):
 
 
 def client_ip(request):
-    return request.client.host if request.client else "unknown"
+    # Real visitor IP behind Cloudflare (see visits.client_ip). Without this,
+    # every visitor looked like 172.18.0.1 and they all shared one hourly limit.
+    return visits.client_ip(request)
 
 
 def parse_request(text):
@@ -281,6 +283,26 @@ async def home(request: Request):
     with open("frontend/index.html", encoding="utf-8") as f:
         page = f.read().replace("{{APP_VERSION}}", APP_VERSION)
     return Response(page, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/hello")
+async def hello(request: Request):
+    """
+    The welcome box (frontend/visitor-hello.js) posts what the visitor typed:
+    {"name": "...", "org": "..."} or {"skipped": true}. Only written to the
+    visitor log - nothing else uses it.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if body.get("skipped"):
+        visits.log_event(request, "intro_skipped")
+    else:
+        visits.log_event(request, "intro",
+                         name=str(body.get("name", "")).strip()[:80],
+                         org=str(body.get("org", "")).strip()[:120])
+    return {"ok": True}
 
 
 @app.post("/export-excel")
