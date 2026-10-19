@@ -34,6 +34,9 @@ History
            IP behind Cloudflare (was 172.18.0.1, which also made everyone
            share one hourly limit); demo policy updated
     1.11.1 Welcome box: name required (Skip removed)
+    1.12.0 Visitor log shows PEOPLE: one row per browser (ak_vid cookie) with
+           their name, visits and questions; bots, link previews, your own
+           visits and direct-IP traffic moved out of the main list
 """
 
-APP_VERSION = "1.11.1"
+APP_VERSION = "1.12.0"

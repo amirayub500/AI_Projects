@@ -278,11 +278,23 @@ app.mount(
 
 @app.get("/")
 async def home(request: Request):
-    visits.log_event(request, "visit")
+    # One anonymous ID per browser (cookie ak_vid), so the visitor log can put
+    # all of a person's visits, their name and their questions on one row
+    vid = request.cookies.get("ak_vid", "")[:40]
+    new_vid = not vid
+    if new_vid:
+        vid = visits.new_visitor_id()
+    visits.log_event(request, "visit", vid=vid)
     # Put the app version into the page (see version.py)
     with open("frontend/index.html", encoding="utf-8") as f:
         page = f.read().replace("{{APP_VERSION}}", APP_VERSION)
-    return Response(page, media_type="text/html", headers={"Cache-Control": "no-cache"})
+    response = Response(page, media_type="text/html", headers={"Cache-Control": "no-cache"})
+    if new_vid:
+        https = (request.headers.get("x-forwarded-proto") == "https"
+                 or '"https"' in request.headers.get("cf-visitor", ""))
+        response.set_cookie("ak_vid", vid, max_age=60 * 60 * 24 * 365, path="/",
+                            samesite="lax", secure=https)
+    return response
 
 
 @app.post("/hello")
@@ -345,7 +357,9 @@ async def admin_visits(request: Request):
         raise HTTPException(status_code=404, detail="Set ADMIN_PASSWORD to turn on this page.")
     if not visits.is_admin(request):
         return _admin_login()
-    page = await run_in_threadpool(visits.admin_page)
+    visits.remember_owner(request)
+    view = "events" if request.query_params.get("view") == "events" else "people"
+    page = await run_in_threadpool(visits.admin_page, view)
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
